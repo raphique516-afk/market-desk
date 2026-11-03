@@ -250,6 +250,7 @@ ul.bul.red li::marker{color:var(--down)}
 pre.doc{white-space:pre-wrap;word-break:break-word;font-family:var(--f-mono);font-size:12px;line-height:1.5;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin:0;max-height:520px;overflow:auto}
 .chartwrap{overflow-x:auto}
 svg.di{width:100%;min-width:480px;height:auto;display:block}
+@media (max-width:560px){svg.di{min-width:0}}
 svg.di .g{stroke:var(--line-2);stroke-width:1}
 svg.di .t{fill:var(--ink-3);font:11px var(--f-mono)}
 svg.di .t.b{fill:var(--ink);font-weight:600}
@@ -1249,7 +1250,7 @@ function agentHead(){
   const newer = a && S.lastData > (a.dataAsOf||0) + 60000;
   const out = [`<div class="brief-head"><div class="row1"><h2>Desk briefing</h2><span class="sp" style="flex:1"></span>
     ${S.agentBusy ? `<button class="btn sm" id="stop">Stop</button>` : `<button class="btn primary" id="run" ${(!sample||!S.sampleOK||!has)?"disabled":""}>${a?"Run new briefing":"Run briefing"}</button>`}</div>
-    <div class="muted" style="font-size:12.5px">${a ? `Last briefing ${esc(ago(a.ranAt))}${a.source==="cloud"?" by the daily cloud run":""}${newer?" · prices or news have changed since":""}` : "No briefing yet."} A fresh briefing is written in the cloud every weekday after the close, so it is ready on your phone without running anything. The agent reads market news, every company's news, earnings calls, filings and the reports you uploaded, then argues with your positions. A run takes one to three minutes.</div>
+    <div class="muted" style="font-size:12.5px">${a ? `Last briefing ${esc(ago(a.ranAt))}${a.source==="cloud"?" by the daily cloud run":""}${newer?" · prices or news have changed since then":""}.` : "No briefing yet."} A fresh briefing is written in the cloud every weekday after the close, so it is ready on your phone without running anything. The agent reads market news, every company's news, earnings calls, filings and the reports you uploaded, then argues with your positions. A run takes one to three minutes.</div>
     ${S.agentBusy ? `<div class="progress"><span class="spin"></span><span>${esc(S.progress)}</span></div>` : ""}
     ${agentErrHtml()}
   </div>`];
