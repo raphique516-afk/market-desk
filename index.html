@@ -1,0 +1,1692 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Market Desk"><meta name="theme-color" content="#0e1a2b">
+<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" href="icon-192.png">
+<style>:root{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body><style>
+#gate{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:#0e1a2b;color:#e9eef6;font-family:"IBM Plex Sans",system-ui,sans-serif;padding:24px}
+#gate form{width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px}
+#gate h1{margin:0;font-family:"IBM Plex Sans Condensed","Arial Narrow",sans-serif;font-size:28px}
+#gate h1 i{font-style:normal;color:#f0a33a}
+#gate p{margin:0;color:#8fa1b8;font-size:14px;line-height:1.45}
+#gate input[type=password]{font:16px "IBM Plex Mono",monospace;padding:12px 14px;border-radius:8px;border:1px solid #2a3b55;background:#16263d;color:#e9eef6}
+#gate label{display:flex;gap:8px;align-items:center;color:#8fa1b8;font-size:13px}
+#gate button{font:600 15px system-ui;padding:12px;border-radius:8px;border:0;background:#f0a33a;color:#1a1206;cursor:pointer}
+#gate .err{color:#ff7a6e;min-height:1.2em}
+.ro #add,.ro #add2,.ro #rep-add,.ro #rep-add2,.ro #pack,.ro #pack-stop,.ro #run,.ro #run2,.ro #stop,.ro #refresh,.ro #allow,.ro #deep-all,.ro [data-deep],.ro [data-act="save-notes"],.ro [data-act="edit"],.ro [data-act="del"],.ro [data-act="rep-del"],.ro [data-fbopen],.ro [data-forget]{display:none!important}
+.ro textarea.notes{pointer-events:none;opacity:.85}
+#ro-note{font-size:12px;color:#8fa1b8;padding:6px 16px;background:#0e1a2b;text-align:center}
+</style>
+<div id="gate"><form id="gate-form" autocomplete="on">
+  <h1>Market<i>·</i>Desk</h1>
+  <p>Enter your passphrase to unlock your portfolio. The data is encrypted; only this passphrase opens it.</p>
+  <input type="password" id="gate-pass" autocomplete="current-password" placeholder="Passphrase" required>
+  <label><input type="checkbox" id="gate-keep" checked> Remember on this device</label>
+  <button type="submit">Unlock</button>
+  <div class="err" id="gate-err" role="alert"></div>
+</form></div>
+<script>
+(() => {
+  const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  async function decrypt(pass) {
+    const r = await fetch("data.enc.json?t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) throw new Error("load");
+    const box = await r.json();
+    const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
+    const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt: b64(box.salt), iterations: 250000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64(box.iv) }, key, b64(box.ct));
+    return JSON.parse(new TextDecoder().decode(pt));
+  }
+  // Read-only stand-in for the artifact's database, served from the snapshot.
+  function makeDb(snap) {
+    const colls = { holdings: snap.holdings || [], reports: snap.reports || [], deep: snap.deep || [], history: snap.history || [] };
+    const docs = snap.docs || {};
+    const ro = () => Promise.reject({ code: "read_only", message: "Read-only copy" });
+    const meta = { fromCache: false, hasPendingWrites: false };
+    const docSnap = (id, d) => ({ id, exists: !!d, data: () => d || undefined, metadata: meta });
+    function ref(path) {
+      const last = path.split("/").pop();
+      return {
+        path, id: last,
+        collection: c => ref(path + "/" + c),
+        doc: id => ref(path + "/" + (id || "x")),
+        add: ro, set: ro, update: ro, delete: ro, acquire: async () => ({ acquired: false }),
+        where() { return this; }, orderBy() { return this; }, limit() { return this; },
+        get: async () => colls[last] ? { docs: colls[last].map(d => docSnap(d.id, d)), size: colls[last].length, empty: !colls[last].length, metadata: meta, docChanges: () => [] } : docSnap(last, docs[last]),
+        onSnapshot(next) {
+          setTimeout(() => {
+            if (colls[last]) { const ds = colls[last].map(d => docSnap(d.id, d)); next({ docs: ds, size: ds.length, empty: !ds.length, metadata: meta, docChanges: () => [] }); }
+            else next(docSnap(last, docs[last]));
+          }, 0);
+          return () => {};
+        }
+      };
+    }
+    return { doc: ref, collection: ref };
+  }
+  function start(snap) {
+    document.documentElement.classList.add("ro");
+    const db = makeDb(snap);
+    const user = { id: async () => "me", isOwner: async () => true, canEdit: async () => false, can: async () => false };
+    window.claude = { use: async n => n === "db" ? db : n === "user" ? user : null };
+    document.getElementById("gate").remove();
+    const note = document.createElement("div"); note.id = "ro-note";
+    note.textContent = `Read-only copy · data from ${new Date(snap.builtAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })} · refreshes hourly`;
+    document.body.appendChild(note);
+    window.__startDesk();
+  }
+  async function unlock(pass, keep) {
+    const err = document.getElementById("gate-err");
+    err.textContent = "Unlocking…";
+    try {
+      const snap = await decrypt(pass);
+      try { keep ? localStorage.setItem("desk-pass", pass) : localStorage.removeItem("desk-pass"); } catch {}
+      start(snap);
+    } catch (e) {
+      try { localStorage.removeItem("desk-pass"); } catch {}
+      err.textContent = e && e.message === "load" ? "Couldn't load the data. Check your connection and try again." : "Wrong passphrase.";
+    }
+  }
+  document.getElementById("gate-form").addEventListener("submit", ev => {
+    ev.preventDefault();
+    unlock(document.getElementById("gate-pass").value, document.getElementById("gate-keep").checked);
+  });
+  window.addEventListener("DOMContentLoaded", () => {
+    let saved = null; try { saved = localStorage.getItem("desk-pass"); } catch {}
+    if (saved) unlock(saved, true);
+  });
+})();
+</script>
+<title>Market Desk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: sticky desk header with four tabs; working column + compact agent rail (rail stacks on top at phone width). */
+:root{
+  --bg:#eef1f5; --surface:#ffffff; --surface-2:#f6f8fb; --line:#d8dee7; --line-2:#e7ebf1;
+  --ink:#121c29; --ink-2:#435063; --ink-3:#6c788a;
+  --accent:#b46a00; --accent-ink:#ffffff; --accent-soft:#fbefdc;
+  --up:#0f7a4a; --up-soft:#e2f3ea; --down:#c0352b; --down-soft:#fbe6e3; --warn:#9a6200; --warn-soft:#fdf1d8;
+  --focus:#2f5bd3;
+  --band:#0e1a2b; --band-2:#16263d; --band-ink:#e9eef6; --band-mute:#8fa1b8;
+  --c1:#2f6db5; --c2:#c27c0e; --c3:#2e8b57; --c4:#8e4ec6; --c5:#d0543e; --c6:#1a9aa0; --c7:#b5487a; --c8:#6b7a2a; --c9:#5a6b80;
+  --shadow:0 1px 2px rgba(14,26,43,.06),0 4px 14px rgba(14,26,43,.06);
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d131c; --surface:#141c27; --surface-2:#18212e; --line:#263243; --line-2:#1f2a38;
+  --ink:#e6ebf2; --ink-2:#a9b4c3; --ink-3:#7c889a;
+  --accent:#f0a33a; --accent-ink:#1a1206; --accent-soft:#33260f;
+  --up:#3ccf8e; --up-soft:#10291f; --down:#ff7a6e; --down-soft:#341816; --warn:#f0b54a; --warn-soft:#30250f;
+  --focus:#7ea2ff;
+  --band:#080d15; --band-2:#111a27; --band-ink:#e6ebf2; --band-mute:#7c889a;
+  --c1:#6aa3e8; --c2:#f0a33a; --c3:#4cc38a; --c4:#b48cf0; --c5:#ff8a73; --c6:#4fd1d6; --c7:#e98ab5; --c8:#b5c25a; --c9:#9aaabf;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d131c; --surface:#141c27; --surface-2:#18212e; --line:#263243; --line-2:#1f2a38;
+  --ink:#e6ebf2; --ink-2:#a9b4c3; --ink-3:#7c889a;
+  --accent:#f0a33a; --accent-ink:#1a1206; --accent-soft:#33260f;
+  --up:#3ccf8e; --up-soft:#10291f; --down:#ff7a6e; --down-soft:#341816; --warn:#f0b54a; --warn-soft:#30250f;
+  --focus:#7ea2ff;
+  --band:#080d15; --band-2:#111a27; --band-ink:#e6ebf2; --band-mute:#7c889a;
+  --c1:#6aa3e8; --c2:#f0a33a; --c3:#4cc38a; --c4:#b48cf0; --c5:#ff8a73; --c6:#4fd1d6; --c7:#e98ab5; --c8:#b5c25a; --c9:#9aaabf;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25); color-scheme:dark}
+
+html,body{background:var(--bg)}
+body{color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5}
+*{box-sizing:border-box}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+a{color:inherit}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.gutter{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.muted{color:var(--ink-3)}
+.label{font-family:var(--f-display);text-transform:uppercase;letter-spacing:.08em;font-size:11px;font-weight:600;color:var(--ink-3)}
+
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--band)}
+header.desk{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--band);color:var(--band-ink);border-bottom:1px solid var(--band-2)}
+header.desk .brand b{color:var(--band-ink)}
+header.desk .brand b i{font-style:normal;color:var(--accent)}
+header.desk .brand span{color:var(--band-mute)}
+header.desk nav.tabs{background:var(--band-2);border-color:transparent}
+header.desk nav.tabs button{color:var(--band-mute)}
+header.desk nav.tabs button:hover{color:var(--band-ink)}
+header.desk nav.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+header.desk .status{color:var(--band-mute)}
+header.desk .btn{background:transparent;border-color:var(--band-2);color:var(--band-ink)}
+header.desk .btn:hover{border-color:var(--band-mute)}
+.tape{border-top:1px solid var(--band-2);overflow:hidden;white-space:nowrap;font-family:var(--f-mono);font-size:12px;color:var(--band-mute);-webkit-mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent);mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent)}
+.tape-in{display:inline-flex;gap:28px;padding-block:7px;animation:tape 60s linear infinite;padding-left:16px}
+.tape:hover .tape-in{animation-play-state:paused}
+.tape b{color:var(--band-ink);font-weight:600;margin-right:6px}
+.tape .up{color:var(--up)} .tape .down{color:var(--down)}
+@keyframes tape{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.tape{overflow-x:auto}.tape-in{animation:none}}
+.desk-in{max-width:1320px;margin:0 auto;display:flex;align-items:center;gap:16px 20px;flex-wrap:wrap;padding-block:10px}
+.brand{display:flex;align-items:baseline;gap:8px}
+.brand b{font-family:var(--f-display);font-size:20px;font-weight:700;letter-spacing:.01em}
+.brand span{font-family:var(--f-mono);font-size:11px;color:var(--ink-3)}
+nav.tabs{display:flex;gap:2px;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:3px;flex-wrap:wrap}
+nav.tabs button{border:0;background:transparent;padding:5px 13px;border-radius:999px;cursor:pointer;font-family:var(--f-display);font-weight:600;letter-spacing:.03em;color:var(--ink-2)}
+nav.tabs button[aria-selected="true"]{background:var(--ink);color:var(--surface)}
+nav.tabs .badge{display:inline-block;min-width:16px;padding:0 4px;margin-left:5px;border-radius:8px;background:var(--accent);color:var(--accent-ink);font-size:10.5px;font-family:var(--f-mono);line-height:16px;text-align:center}
+.status{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--up);display:inline-block;margin-right:6px;box-shadow:0 0 0 3px var(--up-soft)}
+.dot.stale{background:var(--warn);box-shadow:0 0 0 3px var(--warn-soft)}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 12px;cursor:pointer;font-weight:500;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--ink-3)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.05)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--ink-2)}
+.btn.danger{color:var(--down);border-color:var(--down)}
+.btn[disabled]{opacity:.55;cursor:default}
+.btn.sm{padding:3px 9px;font-size:12px}
+
+main.grid{max-width:1320px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;padding-block:20px 48px}
+main.grid.wide{grid-template-columns:minmax(0,1fr)}
+main.grid.wide aside.agent{display:none}
+@media (max-width:980px){main.grid{grid-template-columns:minmax(0,1fr)} aside.agent{order:-1;position:static!important;max-height:none!important}}
+.content{min-width:0;display:flex;flex-direction:column;gap:16px}
+#c-head,#c-form,#c-body{display:flex;flex-direction:column;gap:16px;min-width:0}
+#c-head:empty,#c-form:empty,#c-body:empty{display:none}
+
+.notice{border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:10px 14px;font-size:13px;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.notice.warn{border-color:var(--warn);background:var(--warn-soft)}
+.notice.err{border-color:var(--down);background:var(--down-soft)}
+.notice p{margin:0;flex:1 1 260px;min-width:0}
+
+.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+@media (max-width:720px){.summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stat{background:var(--surface);padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.stat .v{font-family:var(--f-mono);font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.25;overflow-wrap:anywhere}
+.stat .v small{font-size:12px;font-weight:500;color:var(--ink-3)}
+.stat .s{font-size:12px;font-family:var(--f-mono)}
+.up{color:var(--up)} .down{color:var(--down)}
+
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.bar h2{font-family:var(--f-display);font-size:18px;margin:0;font-weight:600;letter-spacing:.01em}
+.bar .sp{flex:1}
+
+form.pos{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media (max-width:720px){form.pos{grid-template-columns:repeat(2,minmax(0,1fr))}}
+form.pos .full{grid-column:1/-1}
+form.pos .half{grid-column:span 2}
+.fld{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fld input,.fld select,.fld textarea,textarea.notes{border:1px solid var(--line);border-radius:6px;background:var(--surface-2);padding:7px 9px;width:100%;min-width:0}
+.fld textarea,textarea.notes{resize:vertical;min-height:72px;line-height:1.45}
+.fld .hint{font-size:11.5px;color:var(--ink-3)}
+.form-actions{grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.checks{display:flex;gap:6px;flex-wrap:wrap}
+.checks label{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-family:var(--f-mono);font-size:12px;cursor:pointer;background:var(--surface-2)}
+.checks input{margin:0}
+
+.tablewrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow-x:auto;box-shadow:var(--shadow)}
+table.pf{width:100%;border-collapse:collapse;min-width:880px}
+table.pf th{font-family:var(--f-display);text-transform:uppercase;letter-spacing:.07em;font-size:10.5px;font-weight:600;color:var(--ink-3);text-align:right;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--surface-2)}
+table.pf th:first-child,table.pf td:first-child{text-align:left}
+table.pf td{padding:10px 12px;border-bottom:1px solid var(--line-2);text-align:right;vertical-align:middle;white-space:nowrap}
+table.pf tr.row{cursor:pointer}
+table.pf tr.row:hover td{background:var(--surface-2)}
+table.pf tr.row.open td{background:var(--surface-2);border-bottom-color:transparent}
+.tk{display:flex;flex-direction:column;gap:1px}
+.tk b{font-family:var(--f-mono);font-weight:600;font-size:13.5px;display:inline-flex;align-items:center;gap:7px}
+.cdot{width:8px;height:8px;border-radius:2px;display:inline-block;flex:none}
+.tk span{font-size:12px;color:var(--ink-3);max-width:180px;overflow:hidden;text-overflow:ellipsis}
+.sub{display:block;font-size:11.5px;color:var(--ink-3)}
+.chg{display:inline-block;padding:1px 7px;border-radius:4px;font-family:var(--f-mono);font-size:12.5px;font-variant-numeric:tabular-nums}
+.chg.up{background:var(--up-soft)} .chg.down{background:var(--down-soft)}
+.range{width:120px;display:inline-flex;flex-direction:column;gap:3px;vertical-align:middle}
+.range .track{position:relative;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--down-soft),var(--line-2) 50%,var(--up-soft));border:1px solid var(--line)}
+.range .pin{position:absolute;top:-4px;width:3px;height:12px;border-radius:2px;background:var(--ink);transform:translateX(-1px)}
+.range .ends{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:10.5px;color:var(--ink-3)}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 9px;font-family:var(--f-display);font-weight:600;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;border:1px solid transparent;white-space:nowrap}
+.pill.buy{background:var(--up-soft);color:var(--up);border-color:var(--up)}
+.pill.sell{background:var(--down-soft);color:var(--down);border-color:var(--down)}
+.pill.trim{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
+.pill.hold{background:var(--surface-2);color:var(--ink-2);border-color:var(--line)}
+.pill.watch{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+.pill.none{color:var(--ink-3);border-color:var(--line)}
+tr.detail td{background:var(--surface-2);text-align:left;white-space:normal;padding:4px 12px 16px}
+.detail-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px}
+@media (max-width:720px){.detail-grid{grid-template-columns:minmax(0,1fr)}}
+.detail-grid h4,.card h4{margin:0 0 6px;font-family:var(--f-display);font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);font-weight:600}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;font-size:12.5px}
+.kv dt{color:var(--ink-3)} .kv dd{margin:0;font-family:var(--f-mono)}
+.mini-news{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.mini-news a{text-decoration:none;font-weight:500}
+.mini-news a:hover{text-decoration:underline}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:28px 20px;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.empty h3{margin:0;font-family:var(--f-display);font-size:18px}
+.empty p{margin:0;max-width:62ch;color:var(--ink-2)}
+
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 11px;font-size:12.5px;cursor:pointer;font-family:var(--f-mono)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.news{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.art{padding:14px 16px;border-bottom:1px solid var(--line-2);display:flex;flex-direction:column;gap:5px;min-width:0}
+.art:last-child{border-bottom:0}
+.art .meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--ink-3)}
+.tag{font-family:var(--f-mono);font-size:11px;padding:1px 6px;border-radius:4px;background:var(--surface-2);border:1px solid var(--line);color:var(--ink-2)}
+.tag.mine{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.art h3{margin:0;font-size:15.5px;line-height:1.35;font-weight:600;text-wrap:balance}
+.art h3 a{text-decoration:none}
+.art h3 a:hover{text-decoration:underline}
+.art p{margin:0;color:var(--ink-2);font-size:13.5px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;max-width:80ch}
+.art.ref{animation:flash 1.6s ease}
+@keyframes flash{0%{background:var(--accent-soft)}100%{background:transparent}}
+.art .actions{display:flex;gap:6px;margin-top:4px}
+
+/* Agent briefing */
+.brief-head{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.brief-head .row1{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.brief-head h2{margin:0;font-family:var(--f-display);font-size:20px}
+.truth{background:linear-gradient(135deg,var(--band),var(--band-2));color:var(--band-ink);box-shadow:var(--shadow);border-radius:var(--r);padding:18px 20px;display:flex;flex-direction:column;gap:10px}
+.truth .label{color:var(--accent)}
+.truth p{margin:0;font-size:15px;line-height:1.55;max-width:75ch}
+.provs{display:flex;flex-direction:column;gap:8px;margin:4px 0 0;padding:0;list-style:none}
+.provs li{display:flex;gap:10px;align-items:flex-start;font-size:14.5px;font-style:italic;line-height:1.45}
+.provs li::before{content:"?";flex:none;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font:600 13px/22px var(--f-mono);text-align:center;font-style:normal}
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:820px){.cards{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;display:flex;flex-direction:column;gap:10px;min-width:0;box-shadow:var(--shadow)}
+.card .top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card .top b{font-family:var(--f-mono);font-size:15px}
+.card .top .conf{margin-left:auto;font-size:11.5px;color:var(--ink-3)}
+.card h3{margin:0;font-size:15px;line-height:1.35}
+.card p{margin:0;font-size:13.5px;color:var(--ink-2)}
+.card .crit{border-left:3px solid var(--down);padding-left:10px;color:var(--ink)}
+.card .prov{background:var(--accent-soft);border-radius:6px;padding:8px 10px;font-style:italic;color:var(--ink)}
+.card .watch,.sig .watch{font-size:12.5px;border-left:2px solid var(--accent);padding-left:8px;color:var(--ink)}
+.refs{display:flex;gap:4px;flex-wrap:wrap;align-items:center;font-size:11.5px;color:var(--ink-3)}
+.refs button{border:1px solid var(--line);background:var(--surface-2);border-radius:4px;padding:0 6px;font-family:var(--f-mono);font-size:11px;cursor:pointer}
+.rc{font-size:11.5px;font-family:var(--f-mono)}
+.rc.supports{color:var(--up)} .rc.challenges{color:var(--down)}
+.progress{display:flex;gap:10px;align-items:center;color:var(--ink-2);font-size:13px}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);animation:sp 0.9s linear infinite;flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:3s}.art.ref{animation:none}}
+.skel{height:12px;border-radius:4px;background:var(--line-2);margin:6px 0}
+
+/* Agent rail */
+aside.agent{box-shadow:var(--shadow);position:sticky;top:calc(env(safe-area-inset-top,0px) + 112px);align-self:start;max-height:calc(100vh - 96px);overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column}
+.ag-head{padding:14px 16px 12px;border-bottom:1px solid var(--line);border-top:3px solid var(--accent);border-radius:var(--r) var(--r) 0 0;display:flex;flex-direction:column;gap:8px;background:var(--surface);position:sticky;top:0;z-index:1}
+.ag-title{display:flex;align-items:center;gap:8px}
+.ag-title h2{margin:0;font-family:var(--f-display);font-size:17px;font-weight:700}
+.ag-title .sp{flex:1}
+.ag-sub{font-size:12px;color:var(--ink-3)}
+.ag-block{padding:12px 16px;border-bottom:1px solid var(--line-2);display:flex;flex-direction:column;gap:6px}
+.ag-block p{margin:0;font-size:13px;color:var(--ink-2)}
+.sig{padding:10px 16px;border-bottom:1px solid var(--line-2);display:flex;flex-direction:column;gap:4px;cursor:pointer}
+.sig:hover{background:var(--surface-2)}
+.sig-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sig-top b{font-family:var(--f-mono);font-size:13.5px}
+.sig p{margin:0;font-size:12.5px;color:var(--ink-2)}
+.ag-foot{padding:10px 16px 14px;font-size:11.5px;color:var(--ink-3)}
+.card.wide{grid-column:1/-1}
+.deep{border-top:1px solid var(--line);padding-top:12px;margin-top:2px;display:flex;flex-direction:column;gap:12px}
+.deep .top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.deep .top .conf{margin-left:auto;font-size:11.5px;color:var(--ink-3)}
+.deep-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:720px){.deep-cols{grid-template-columns:minmax(0,1fr)}}
+ul.bul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink-2)}
+ul.bul.red li::marker{color:var(--down)}
+.scen{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:820px){.scen{grid-template-columns:minmax(0,1fr)}}
+.sc{border:1px solid var(--line);border-radius:6px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;background:var(--surface-2);min-width:0}
+.sc.bear{border-top:3px solid var(--down)} .sc.base{border-top:3px solid var(--ink-3)} .sc.bull{border-top:3px solid var(--up)}
+.sc-top{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--f-display);font-size:15px}
+.pbar{height:5px;border-radius:3px;background:var(--line-2);overflow:hidden}
+.pbar span{display:block;height:100%;background:var(--ink-2)}
+.sc.bear .pbar span{background:var(--down)} .sc.bull .pbar span{background:var(--up)}
+.sc p{margin:0;font-size:13px;color:var(--ink-2)}
+.sc .vv{font-family:var(--f-mono);font-size:12.5px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:5px 7px}
+.sc h4{margin:2px 0 0}
+.provs.dark li{color:var(--ink)}
+pre.doc{white-space:pre-wrap;word-break:break-word;font-family:var(--f-mono);font-size:12px;line-height:1.5;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin:0;max-height:520px;overflow:auto}
+.chartwrap{overflow-x:auto}
+svg.di{width:100%;min-width:480px;height:auto;display:block}
+svg.di .g{stroke:var(--line-2);stroke-width:1}
+svg.di .t{fill:var(--ink-3);font:11px var(--f-mono)}
+svg.di .t.b{fill:var(--ink);font-weight:600}
+svg.di .l{fill:none;stroke:var(--accent);stroke-width:2.2}
+svg.di .a{fill:var(--accent-soft);opacity:.7}
+svg.di .p{fill:var(--surface);stroke:var(--accent);stroke-width:2}
+svg.di .selic{stroke:var(--ink-3);stroke-dasharray:4 4}
+.tag.hit{border-color:var(--up);color:var(--up);background:var(--up-soft)}
+.tag.miss{border-color:var(--down);color:var(--down);background:var(--down-soft)}
+.fb{display:flex;flex-direction:column;gap:6px}
+.fbrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hero{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:20px 22px;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,2fr);gap:18px 28px;align-items:end}
+@media (max-width:820px){.hero{grid-template-columns:minmax(0,1fr);padding:16px}}
+.hero-main{display:flex;flex-direction:column;gap:4px;min-width:0}
+.hero .big{font-family:var(--f-display);font-weight:700;font-size:clamp(30px,6vw,46px);letter-spacing:-.01em;line-height:1.05;font-variant-numeric:tabular-nums}
+.hero .big small{font-family:var(--f-mono);font-size:13px;font-weight:500;color:var(--ink-3);margin-left:6px;letter-spacing:0}
+.hero-sub{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--ink-3)}
+.hero-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.hero-stats > div{display:flex;flex-direction:column;gap:3px;padding-left:12px;border-left:1px solid var(--line);min-width:0}
+.hero-stats .v{font-family:var(--f-mono);font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.hero-stats .s{font-family:var(--f-mono);font-size:12px}
+@media (max-width:560px){.hero-stats{grid-template-columns:minmax(0,1fr);gap:0}.hero-stats > div{flex-direction:row;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 10px;border-left:0;padding:8px 0 0;margin-top:8px;border-top:1px solid var(--line)}.hero-stats .label{flex:1 0 100%}}
+.alloc{grid-column:1/-1;display:flex;flex-direction:column;gap:8px}
+.alloc-bar{display:flex;height:12px;border-radius:6px;overflow:hidden;gap:2px;background:var(--line-2)}
+.alloc-bar span{display:block;height:100%;min-width:3px}
+.alloc-legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px}
+.alloc-legend span{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-mono);color:var(--ink-2)}
+.alloc-legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+.wt{display:inline-flex;flex-direction:column;gap:3px;align-items:flex-end;min-width:64px}
+.wt .wbar{width:64px;height:4px;border-radius:2px;background:var(--line-2);overflow:hidden}
+.wt .wbar span{display:block;height:100%}
+.pf-cards{display:none;flex-direction:column;gap:8px}
+.pcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:12px 14px;display:flex;flex-direction:column;gap:8px;cursor:pointer}
+.pcard.open{border-color:var(--ink-3)}
+.pc-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.pc-grid > div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pc-grid .num{font-size:13.5px;overflow-wrap:anywhere}
+.pc-detail{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-top:-4px}
+@media (max-width:980px){aside.agent .sig,aside.agent .ag-foot{display:none}}
+@media (max-width:700px){header.desk{position:static}header.desk .brand span{display:none}.desk-in{gap:10px 12px;padding-block:8px}}
+@media (max-width:700px){.pf-cards{display:flex}.tablewrap.pf-t{display:none}.summary .stat .v{font-size:16px}nav.tabs button{padding:5px 10px}.status{margin-left:0;width:100%}}
+.sides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (max-width:560px){.sides{grid-template-columns:minmax(0,1fr)}}
+.side{border-radius:6px;padding:8px 10px;border:1px solid var(--line)}
+.side.bull{background:var(--up-soft);border-color:var(--up)}
+.side.bear{background:var(--down-soft);border-color:var(--down)}
+.side p{color:var(--ink)}
+.brief-head.good{border-color:var(--up)}
+ul.bul.green li::marker{color:var(--up)}
+.rail-prov{font-style:italic;font-size:13px;color:var(--ink);border-left:2px solid var(--accent);padding-left:8px;margin:0}
+</style>
+
+<header class="desk gutter">
+  <div class="desk-in">
+    <div class="brand"><b>Market<i>·</i>Desk</b><span>B3 · NYSE · NASDAQ</span></div>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button role="tab" id="tab-portfolio" aria-selected="true" data-tab="portfolio">Portfolio</button>
+      <button role="tab" id="tab-news" aria-selected="false" data-tab="news">News</button>
+      <button role="tab" id="tab-research" aria-selected="false" data-tab="research">Research</button>
+      <button role="tab" id="tab-agent" aria-selected="false" data-tab="agent">Agent</button>
+    </nav>
+    <div class="status" id="status"><span><span class="dot stale"></span>Connecting…</span></div>
+  </div>
+  <div class="tape" id="tape" aria-label="Your positions today"></div>
+</header>
+
+<main class="grid gutter" id="main">
+  <div class="content"><div id="c-head"></div><div id="c-form"></div><div id="c-body"></div></div>
+  <aside class="agent" id="agent" aria-label="Desk agent"></aside>
+</main>
+
+<script>
+window.__startDesk = () => {
+"use strict";
+const AV = "Alpha Vantage MCP Server", BD = "Bigdata.com", TD = "Twelve Data";
+const REFRESH = 15 * 60 * 1000, SLOW = 60 * 60 * 1000;
+const AUTH_CODES = ["needs_reauth","server_not_connected","not_in_manifest","approval_required","blocked_by_policy","consent_required"];
+
+const S = {
+  noRuntime:false, noStore:false, uid:null,
+  holdings:null, holdErr:null, reports:[],
+  quotes:{}, quoteErr:{}, td:{}, tdErr:{}, tear:{}, tearErr:null, tearAt:0,
+  mkt:{}, mktErr:{}, co:{}, coErr:{}, calls:{}, callsErr:{},
+  agent:null, agentBusy:false, agentErr:null, progress:"",
+  tab:"portfolio", newsFilter:"all", open:null, editing:null, formOpen:false, formMsg:"", formBusy:false, confirmDel:null,
+  repOpen:false, repMsg:"", repBusy:false, repDel:null, repFilter:"all",
+  pack:{ busy:false, msg:"", log:[] }, backup:{}, backupAt:0, feed:null, macro:null, memory:null, history:[], fbOpen:null, deep:{}, deepBusy:null, deepErr:{}, deepOpen:null, deepQueue:[], deepProgress:"",
+  lastData:0, sampleOK:true
+};
+let db=null, mcp=null, sample=null, perms=null, holdCol=null, repCol=null, deepCol=null, agentRef=null;
+let packCtl = null, deepCtl = null, histCol = null, memRef = null;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const safeId = s => String(s).replace(/[^A-Za-z0-9_-]/g, "_");
+const watches = new Map();
+let agentCtl = null;
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtMoney = (v, cur) => { if (v==null || !isFinite(v)) return "—"; try { return new Intl.NumberFormat("en-US",{style:"currency",currency:cur||"USD",minimumFractionDigits:2,maximumFractionDigits:2}).format(v);} catch { return v.toFixed(2);} };
+const fmtNum = (v, d=2) => (v==null||!isFinite(v)) ? "—" : v.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtPct = v => (v==null||!isFinite(v)) ? "—" : (v>0?"+":"") + v.toFixed(2) + "%";
+const cls = v => v>0 ? "up" : v<0 ? "down" : "";
+const parseTs = t => { if(!t) return NaN; const s = /[zZ]|[+-]\d\d:?\d\d$/.test(t) ? t : t + "Z"; return Date.parse(s); };
+function ago(ms){ if(!isFinite(ms)) return ""; const d=(Date.now()-ms)/1000; if(d<60) return "just now"; if(d<3600) return Math.round(d/60)+" min ago"; if(d<86400) return Math.round(d/3600)+" h ago"; return Math.round(d/86400)+" d ago"; }
+const isoDay = ms => isFinite(ms) ? new Date(ms).toISOString().slice(0,10) : "undated";
+const asObj = p => { if (typeof p === "string") { try { return JSON.parse(p); } catch { return { _text:p }; } } return p || {}; };
+const stamp = r => (r && r.cache && r.cache.storedAt) || Date.now();
+const needsAllow = e => ["not_in_manifest","approval_required","consent_required"].includes(e?.code);
+
+function errCopy(e, server){
+  const s = server || e?.server || "the connector";
+  switch (e?.code) {
+    case "needs_reauth": return `Reconnect ${s} in claude.ai Settings → Connectors.`;
+    case "server_not_connected": case "selection_required": case "server_not_found": return `Add ${s} in claude.ai Settings → Connectors.`;
+    case "not_in_manifest": case "approval_required": case "consent_required": return `${s} isn't allowed for this page yet.`;
+    case "blocked_by_policy": return `Your organization blocks this ${s} tool.`;
+    case "server_unavailable": case "rate_limited": return `${s} didn't answer. Showing the last data; it retries on the next refresh.`;
+    case "tool_error": return `${s} reported an error: ${String(e.message||"").slice(0,160)}`;
+    case "not_granted": case "capability_disabled": case "capability_removed": return `Connectors aren't available in this view.`;
+    default: return `${s} failed (${e?.code||"error"}).`;
+  }
+}
+
+/* ---------- parsing ---------- */
+function parseQuote(p){
+  p = asObj(p);
+  const q = p["Global Quote"];
+  if (q && q["05. price"]) return { price:+q["05. price"], prev:+q["08. previous close"], chgPct:parseFloat(q["10. change percent"]), day:q["07. latest trading day"], high:+q["03. high"], low:+q["04. low"] };
+  const msg = p?.error?.message || p?.Information || p?.Note || p?._text || "No quote returned for this symbol.";
+  return { err:String(msg), limited:/rate|limit|premium|frequency|per day/i.test(msg) };
+}
+function parseTD(p){
+  p = asObj(p);
+  const txt = typeof p.result === "string" ? p.result : (typeof p._text === "string" ? p._text : null);
+  if (txt && txt.includes("\n") && txt.includes(";")) {
+    const [h, row] = txt.trim().split("\n"); const k = h.split(";"), v = (row||"").split(";");
+    const o = {}; k.forEach((key,i) => o[key] = v[i]);
+    if (o.close) return { price:+o.close, chgPct:+o.percent_change, day:o.datetime, high:+o.high, low:+o.low, w52:[+o.fifty_two_week_low, +o.fifty_two_week_high] };
+  }
+  if (p.close) return { price:+p.close, chgPct:+p.percent_change, day:p.datetime, high:+p.high, low:+p.low };
+  const msg = txt || p.message || "No quote returned.";
+  return { err:String(msg).split("\n")[0].slice(0,200), plan:/plan|upgrad/i.test(msg) };
+}
+function parseNews(p, tag){
+  p = asObj(p);
+  return (p.results || []).map(r => ({
+    id:r.id, headline:r.headline || "(untitled)", t:parseTs(r.timestamp), source:r.source?.name || "",
+    url:r.url || "", text:(r.chunks||[]).map(c=>c.text).join(" ").replace(/\s+/g," ").trim(), tag
+  }));
+}
+function parseTear(p){ p = asObj(p); const out = {}; for (const r of (p.structured || [])) out[r.rp_entity_id] = r; return out; }
+
+/* ---------- prices: Bigdata.com exact listing → Alpha Vantage → Twelve Data ---------- */
+function bdRow(h){
+  const t = h.rpId && S.tear[h.rpId];
+  if (!t || !t.price || t.price.value == null) return null;
+  const want = h.currency === "BRL" ? h.label + ".SA" : h.label;
+  return String(t.ticker || "").toUpperCase() === want ? t : null;
+}
+function priceFor(h){
+  const c = [];
+  const t = bdRow(h); if (t) c.push({ price:t.price.value, chgPct:t.change_1d_pct, src:"Bigdata.com", day:(t.price.as_of||"").slice(0,10) });
+  const q = S.quotes[h.symbol]; if (q && isFinite(q.price)) c.push({ price:q.price, chgPct:q.chgPct, src:"Alpha Vantage", day:q.day||"" });
+  const d = S.td[h.symbol]; if (d && isFinite(d.price)) c.push({ price:d.price, chgPct:d.chgPct, src:"Twelve Data", day:d.day||"" });
+  const b = S.backup[h.label]; if (b && isFinite(+b.price)) c.push({ price:+b.price, chgPct:+b.chgPct, src:(b.src||"backup") + " (hourly)", day:b.day||"" });
+  if (!c.length) return null;
+  return c.reduce((best, x) => x.day > best.day ? x : best, c[0]);
+}
+const PALETTE = ["--c1","--c2","--c3","--c4","--c5","--c6","--c7","--c8","--c9"];
+function colorFor(label){ const i = (S.holdings||[]).findIndex(h => h.label === label); return `var(${PALETTE[(i < 0 ? 0 : i) % PALETTE.length]})`; }
+function weights(R){ const tot = {}; for (const r of R) tot[r.h.currency] = (tot[r.h.currency]||0) + (r.value||0); return Object.fromEntries(R.map(r => [r.h.label, tot[r.h.currency] ? (r.value||0)/tot[r.h.currency]*100 : null])); }
+function renderTape(){
+  const el = $("#tape"); if (!el) return;
+  const items = rows().filter(r => r.px).map(r => `<span><b>${esc(r.h.label)}</b>${fmtNum(r.px.price)} <span class="${cls(r.px.chgPct)}">${fmtPct(r.px.chgPct)}</span></span>`);
+  const m = S.macro?.di?.find(x => x.c === "DI1F29");
+  if (m) items.push(`<span><b>DI jan/29</b>${(+m.r).toFixed(2)}%</span>`);
+  if (S.macro?.selic) items.push(`<span><b>Selic</b>${esc(S.macro.selic)}%</span>`);
+  const html = items.length ? `<div class="tape-in">${items.join("")}${items.join("")}</div>` : "";
+  if (el.__h !== html) { el.innerHTML = html; el.__h = html; el.hidden = !items.length; }
+}
+function rows(){
+  return (S.holdings||[]).map(h => {
+    const px = priceFor(h);
+    const shares = +h.shares || 0, avg = +h.avgCost || 0;
+    const value = px ? px.price*shares : null, cost = avg*shares;
+    const pnl = px ? value - cost : null;
+    const pnlPct = px && avg ? (px.price/avg - 1)*100 : null;
+    const dayPnl = px && isFinite(px.chgPct) ? value - value/(1+px.chgPct/100) : null;
+    return { h, px, shares, avg, value, cost, pnl, pnlPct, dayPnl };
+  });
+}
+function signalFor(label){ return (S.agent?.signals || []).find(x => String(x.symbol||"").toUpperCase() === String(label).toUpperCase()); }
+function pillFor(action){
+  const a = String(action||"").toUpperCase();
+  const c = a.startsWith("BUY") ? "buy" : a==="SELL" ? "sell" : a==="TRIM" ? "trim" : a==="WATCH" ? "watch" : a==="HOLD" ? "hold" : "none";
+  return `<span class="pill ${c}">${esc(a||"—")}</span>`;
+}
+function feedItems(arr, tag){ return (arr||[]).map(n => ({ id:n.id || n.url || n.headline, headline:n.headline||"(untitled)", t:typeof n.t === "number" ? n.t : parseTs(n.ts||n.timestamp), source:n.source||"", url:n.url||"", text:String(n.text||""), tag:n.tag||tag })); }
+function coNews(h){ return (S.co[h.id] && S.co[h.id].length) ? S.co[h.id] : feedItems(S.feed?.company?.[h.label], h.label); }
+function mktNews(){ const live = [...(S.mkt.global||[]), ...(S.mkt.brazil||[])]; return live.length ? live : feedItems(S.feed?.market, "Markets"); }
+function allNews(){
+  const seen = new Set(), list = [];
+  const push = arr => { for (const n of arr||[]) { if (!n.id || seen.has(n.id)) continue; seen.add(n.id); list.push(n); } };
+  for (const h of (S.holdings||[])) push(coNews(h));
+  push(mktNews());
+  return list;
+}
+
+/* ---------- live data ---------- */
+function watch(key, server, tool, input, onData, onErr, every = REFRESH){
+  if (!mcp || watches.has(key)) return;
+  const un = mcp.watchTool(server, tool, input, ev => {
+    if (ev.type === "data") { S.lastData = Math.max(S.lastData, stamp(ev.result)); onData(ev.result); }
+    else onErr(ev.error);
+    render();
+  }, { refetchInterval: every, cache: { staleTime: every - 60*1000, gcTime: every * 4 } });
+  watches.set(key, un);
+}
+function drop(prefix, keep){ for (const [k, un] of watches) if (k.startsWith(prefix) && !keep.has(k)) { un(); watches.delete(k); } }
+const MKT = {
+  global: { search_mode:"smart", query:{ text:"Latest global financial markets news today: stocks, interest rates, currencies and commodities", max_chunks:20 } },
+  brazil: { search_mode:"smart", query:{ text:"Latest news about the Brazilian stock market, Ibovespa and the real today", max_chunks:15 } }
+};
+
+function syncWatches(){
+  if (!mcp) return;
+  for (const k of Object.keys(MKT)) watch("m:"+k, BD, "bigdata_search", { request: MKT[k] },
+    r => { S.mkt[k] = parseNews(r.payload, k==="brazil" ? "Brazil" : "Markets"); delete S.mktErr[k]; },
+    e => { S.mktErr[k] = e; if (AUTH_CODES.includes(e.code)) S.mkt[k] = []; });
+
+  const hs = S.holdings || [];
+  const ids = [...new Set(hs.map(h => h.rpId).filter(Boolean))].sort();
+  const tk = "t:" + ids.join(",");
+  drop("t:", new Set(ids.length ? [tk] : []));
+  if (ids.length) watch(tk, BD, "bigdata_portfolio_tearsheet",
+    { rp_entity_ids: ids, metrics:["PRICE","PRICE_CHANGE_1D","EPS_SURPRISE","PRICE_TARGET","SENTIMENT"] },
+    r => { S.tear = parseTear(r.payload); S.tearErr = null; S.tearAt = stamp(r); setTimeout(syncWatches, 0); },
+    e => { S.tearErr = e; setTimeout(syncWatches, 0); });
+
+  const tearReady = !ids.length || S.tearAt || S.tearErr;
+  const keepQ = new Set(), keepT = new Set(), keepN = new Set(), keepC = new Set();
+  for (const h of hs) {
+    const needAV = !bdRow(h) || !!S.tearErr;
+    const qk = "q:"+h.symbol;
+    if (needAV && tearReady) { keepQ.add(qk); queueJob(qk, () => watchAV(h, qk)); }
+    // Twelve Data steps in when Alpha Vantage has failed and Bigdata.com has no exact quote.
+    const tdk = "d:"+h.symbol;
+    const avFailed = S.quoteErr[h.symbol] && !S.quotes[h.symbol];
+    if (needAV && avFailed && !S.tdErr[h.symbol]?.plan) { keepT.add(tdk); queueJob(tdk, () => watchTD(h, tdk)); }
+
+    const name = h.name || h.label;
+    const nk = "n:"+h.id+":"+name; keepN.add(nk);
+    watch(nk, BD, "bigdata_search", { request:{ search_mode:"smart", query:{ text:`Latest news about ${name} (${h.label}) this week`, max_chunks:8 } } },
+      r => { S.co[h.id] = parseNews(r.payload, h.label); delete S.coErr[h.id]; },
+      e => { S.coErr[h.id] = e; });
+    const ck = "c:"+h.id+":"+name; keepC.add(ck);
+    watch(ck, BD, "bigdata_search", { request:{ search_mode:"smart", query:{ text:`${name} latest earnings call and filings: management commentary on results, guidance, capital allocation and risks`, max_chunks:6 } } },
+      r => { S.calls[h.id] = parseNews(r.payload, h.label); delete S.callsErr[h.id]; },
+      e => { S.callsErr[h.id] = e; }, SLOW);
+  }
+  drop("q:", keepQ); drop("d:", keepT); drop("n:", keepN); drop("c:", keepC);
+  for (const k of [...queued]) if ((k.startsWith("q:") && !keepQ.has(k)) || (k.startsWith("d:") && !keepT.has(k))) queued.delete(k);
+  ensureIds();
+}
+function watchAV(h, qk){
+  watch(qk, AV, "GLOBAL_QUOTE", { symbol:h.symbol, datatype:"json" },
+    r => { const q = parseQuote(r.payload); if (q.err) S.quoteErr[h.symbol] = { msg:q.err, limited:q.limited }; else { S.quotes[h.symbol] = q; delete S.quoteErr[h.symbol]; } setTimeout(syncWatches, 0); },
+    e => { S.quoteErr[h.symbol] = { msg:errCopy(e, AV), e }; if (AUTH_CODES.includes(e.code)) delete S.quotes[h.symbol]; setTimeout(syncWatches, 0); }, SLOW);
+}
+function watchTD(h, tdk){
+  const input = h.currency === "BRL" ? { symbol:h.label, mic_code:"BVMF" } : { symbol:h.label };
+  watch(tdk, TD, "get_quote", input,
+    r => { const q = parseTD(r.payload); if (q.err) { S.tdErr[h.symbol] = { msg:q.err, plan:q.plan }; if (q.plan) { const un = watches.get(tdk); if (un) { un(); watches.delete(tdk); } } } else { S.td[h.symbol] = q; delete S.tdErr[h.symbol]; } },
+    e => { S.tdErr[h.symbol] = { msg:errCopy(e, TD), e }; });
+}
+/* Space out per-symbol quote calls so free plans don't refuse a burst. */
+const queued = new Set(), jobs = []; let pump = null;
+function queueJob(key, fn){
+  if (watches.has(key) || queued.has(key)) return;
+  queued.add(key);
+  jobs.push(() => { if (!queued.has(key)) return false; queued.delete(key); fn(); return true; });
+  if (!pump) runJobs();
+}
+function runJobs(){ let ran = false; while (jobs.length && !ran) ran = jobs.shift()(); pump = jobs.length ? setTimeout(runJobs, 13000) : null; }
+
+const resolving = new Set();
+async function ensureIds(){
+  if (!mcp || !holdCol) return;
+  for (const h of (S.holdings||[])) {
+    if (h.rpId || h.rpLookupFailed || resolving.has(h.id)) continue;
+    resolving.add(h.id);
+    const ent = await resolveEntity(h.name, h.label, h.currency === "BRL" ? "B3" : "US");
+    try { await holdCol.doc(h.id).update(ent ? { rpId:ent.rpId } : { rpLookupFailed:true }); } catch {}
+    resolving.delete(h.id);
+  }
+}
+async function resolveEntity(name, ticker, ex){
+  if (!mcp) return null;
+  try {
+    const ids = ex === "B3" ? ["BVMF:"+ticker] : ["XNAS:"+ticker, "XNYS:"+ticker];
+    const res = await mcp.callTool(BD, "get_securities", { market_identifiers: ids });
+    const hit = Object.values(asObj(res.payload).results || {}).find(r => r && r.id && r.security_type === "COMPANY");
+    if (hit) return { rpId:hit.id };
+  } catch {}
+  try {
+    const res = await mcp.callTool(BD, "find_securities", ex==="B3" ? { query:name, countries:["BR"] } : { query:ticker });
+    let p = asObj(res.payload); if (Array.isArray(p)) p = p[0] || {};
+    const list = (p.results || []).filter(r => r.security_type === "COMPANY");
+    const hit = list.find(r => (r.listing_values||[]).some(l => l.endsWith(":"+ticker)));
+    return hit ? { rpId:hit.id } : null;
+  } catch { return null; }
+}
+
+/* ---------- research pack: statements + earnings calls ---------- */
+const qKey = x => x.fiscal_year*10 + (+String(x.fiscal_period).replace(/\D/g,"") || 0);
+function dfMarkdown(f, label, name){
+  const sortD = a => [...(a||[])].filter(x => /Q\d/.test(x.fiscal_period||"")).sort((x,y) => qKey(y) - qKey(x));
+  const I = sortD(f.income_statement), B = sortD(f.balance_sheet), C = sortD(f.cash_flow);
+  if (!I.length) return null;
+  const q = I.slice(0, 4);
+  const at = (arr, p) => arr.find(x => qKey(x) === qKey(p)) || {};
+  const prevYear = p => I.find(x => x.fiscal_year === p.fiscal_year - 1 && x.fiscal_period === p.fiscal_period);
+  const ltm = p => { const i = I.findIndex(x => qKey(x) === qKey(p)); const s = I.slice(i, i+4); return s.length === 4 ? s.reduce((a,x) => a + (x.ebitda||0), 0) : null; };
+  const m = v => (v==null || !isFinite(v)) ? "—" : (v/1e6).toLocaleString("en-US", { maximumFractionDigits:0 });
+  const pc = v => (v==null || !isFinite(v)) ? "—" : (v*100).toFixed(1) + "%";
+  const cols = q.map(p => `${String(p.fiscal_period).replace(/\D/g,"")}Q${String(p.fiscal_year).slice(2)}`);
+  const row = (label, fn) => `| ${label} | ${q.map(p => { try { return fn(p); } catch { return "—"; } }).join(" | ")} |`;
+  const lines = [
+    `${label} (${name||""}) — quarterly financial statements, ${f.currency||""} millions`,
+    `Source: Bigdata.com corporate fundamentals (${f.source?.provider_id||"data provider"}). Standardised figures; the company's release may report adjusted EBITDA or recurring net income that differ.`,
+    "",
+    `| Line | ${cols.join(" | ")} |`,
+    `|---|${cols.map(() => "---:").join("|")}|`,
+    row("Revenue", p => m(p.revenue)),
+    row("Revenue YoY", p => { const y = prevYear(p); return y && y.revenue ? pc(p.revenue/y.revenue - 1) : "—"; }),
+    row("Gross profit", p => m(p.gross_profit)),
+    row("Gross margin", p => pc(p.gross_profit/p.revenue)),
+    row("EBITDA", p => m(p.ebitda)),
+    row("EBITDA margin", p => pc(p.ebitda/p.revenue)),
+    row("EBIT", p => m(p.operating_income)),
+    row("Net financial result", p => m(p.net_interest_income)),
+    row("Pre-tax income", p => m(p.income_before_tax)),
+    row("Net income", p => m(p.net_income)),
+    row("Net margin", p => pc(p.net_income/p.revenue)),
+    row("EPS", p => p.eps==null ? "—" : (+p.eps).toFixed(3)),
+    row("Cash + ST investments", p => m(at(B,p).cash_and_short_term_investments)),
+    row("Total debt", p => m(at(B,p).total_debt)),
+    row("Net debt", p => m(at(B,p).net_debt)),
+    row("Equity (parent)", p => m(at(B,p).total_stockholders_equity)),
+    row("LTM EBITDA", p => m(ltm(p))),
+    row("Net debt / LTM EBITDA", p => { const l = ltm(p), nd = at(B,p).net_debt; return l && nd!=null ? (nd/l).toFixed(2) + "x" : "—"; }),
+    row("Operating cash flow", p => m(at(C,p).operating_cash_flow)),
+    row("Capex", p => m(at(C,p).capex)),
+    row("Free cash flow", p => m(at(C,p).free_cash_flow)),
+    row("Working-capital change", p => m(at(C,p).change_in_working_capital)),
+    row("Dividends paid", p => m(at(C,p).common_dividends_paid ?? at(C,p).net_dividends_paid)),
+    row("Buybacks", p => m(at(C,p).common_stock_repurchased))
+  ];
+  return { text: lines.join("\n"), periods: q.map(p => ({ fy:p.fiscal_year, q:+String(p.fiscal_period).replace(/\D/g,"") })) };
+}
+
+async function buildPack(){
+  if (!mcp || !repCol || S.pack.busy) return;
+  packCtl = { stop:false };
+  S.pack = { busy:true, msg:"Starting…", log:[] }; render();
+  const hs = S.holdings || [];
+  for (let i = 0; i < hs.length; i++) {
+    const h = hs[i];
+    if (packCtl.stop) break;
+    if (!h.rpId) { S.pack.log.push(`${h.label}: company not identified`); continue; }
+    const tag = `${h.label} (${i+1}/${hs.length})`;
+    S.pack.msg = `${tag}: financial statements…`; render();
+    let periods = null, note = "";
+    try {
+      const r = await mcp.callTool(BD, "bigdata_company_tearsheet", { rp_entity_id:h.rpId, company_type:"Public", sections:["financial_statements"], interval:"quarter" });
+      const f = asObj(r.payload).fundamentals || {};
+      const md = dfMarkdown(f, h.label, h.name);
+      if (md) {
+        periods = md.periods;
+        await repCol.doc("dfs-" + safeId(h.label)).set({ title:`${h.label} financial statements, last 4 quarters`, publisher:"Bigdata.com fundamentals", date:isoDay(Date.now()), symbols:[h.label], kind:"dfs", text:md.text, chars:md.text.length, addedAt:Date.now() });
+      } else note = "no statements from the data provider";
+    } catch (e) { note = "statements unavailable"; }
+    const cands = periods || [{fy:2026,q:3},{fy:2026,q:2},{fy:2026,q:1},{fy:2025,q:4},{fy:2025,q:3}];
+    let found = 0;
+    for (const p of cands) {
+      if (found >= 4 || packCtl.stop) break;
+      S.pack.msg = `${tag}: ${p.q}Q${String(p.fy).slice(2)} earnings call…`; render();
+      try {
+        const r = await mcp.callTool(BD, "bigdata_search", { request:{ search_mode:"fast", query:{
+          text:"quarterly results, revenue, margins, cash flow, leverage, capital allocation, guidance and outlook", max_chunks:14,
+          filters:{ reporting_entities:[h.rpId], reporting_periods:[{ fiscal_year:p.fy, fiscal_quarter:p.q }], document_type:{ mode:"INCLUDE", values:[{ type:"TRANSCRIPT", subtypes:["EARNINGS_CALL"] }] } } } } });
+        const res = asObj(r.payload).results || [];
+        if (res.length) {
+          const d = res[0];
+          const chunks = res.filter(x => x.id === d.id).flatMap(x => x.chunks || []).sort((a,b) => (a.cnum||0) - (b.cnum||0));
+          const text = chunks.map(c => c.text).join("\n\n");
+          if (text.length > 200) {
+            await repCol.doc(`call-${safeId(h.label)}-${p.fy}Q${p.q}`).set({ title:d.headline || `${h.label} ${p.q}Q${p.fy} earnings call`, publisher:d.source?.name || "Earnings call", date:String(d.timestamp||"").slice(0,10), symbols:[h.label], kind:"call", period:`${p.q}Q${String(p.fy).slice(2)}`, url:d.url || "", text, chars:text.length, addedAt:Date.now() });
+            found++;
+          }
+        }
+      } catch {}
+      await sleep(300);
+    }
+    S.pack.log.push(`${h.label}: ${note ? note + ", " : "statements, "}${found} call${found===1?"":"s"}`);
+  }
+  S.pack.busy = false; S.pack.msg = (packCtl.stop ? "Stopped. " : "Done. ") + S.pack.log.join(" · "); render();
+}
+
+/* ---------- rates + memory context ---------- */
+function diCompact(){
+  const m = S.macro; if (!m || !Array.isArray(m.di) || !m.di.length) return "DI curve: not available.";
+  const pick = m.di.filter(x => /F\d\d$/.test(x.c));
+  const prev = Object.fromEntries((m.prev||[]).map(x => [x.c, x.r]));
+  return `Brazil DI futures curve (B3 settlement, ${m.date}; % a.a.): ${pick.map(x => `${x.c.replace("DI1","")} ${(+x.r).toFixed(2)}${prev[x.c]!=null ? ` (${((x.r-prev[x.c])*100).toFixed(0)} bp d/d)` : ""}`).join(", ")}. Selic ${m.selic}%. ${m.notes||""}`;
+}
+function memoryCompact(){
+  const mm = S.memory;
+  const lines = [];
+  if (mm?.investorProfile) lines.push(`Investor profile you built: ${mm.investorProfile}`);
+  if (mm?.lessons?.length) lines.push("Lessons you recorded:\n" + mm.lessons.map((l,i) => `${i+1}. ${l}`).join("\n"));
+  const sc = scorecard();
+  if (sc.list.length) {
+    lines.push(`Track record of your earlier calls (price at the call → now): ${sc.scored ? `${sc.hits}/${sc.scored} directional calls right` : "no directional calls old enough yet"}.`);
+    lines.push(sc.list.slice(0, 30).map(x => `${isoDay(x.ranAt)} ${x.symbol} ${x.action}: ${x.ret>0?"+":""}${x.ret.toFixed(1)}% over ${x.days}d${x.hit===true?" ✓":x.hit===false?" ✗":""}`).join("; "));
+  }
+  const fb = [];
+  for (const h of S.history.slice(0, 6)) for (const [sym, f] of Object.entries(h.feedback||{})) fb.push(`${isoDay(h.ranAt)} ${sym}: investor ${f.v === "agree" ? "agreed" : "disagreed"}${f.note ? ` — "${String(f.note).slice(0,240)}"` : ""}`);
+  if (fb.length) lines.push("Investor feedback on your calls:\n" + fb.join("\n"));
+  return lines.join("\n") || "No memory yet: this is your first session.";
+}
+function scorecard(){
+  const pxNow = {}; for (const r of rows()) if (r.px) pxNow[r.h.label] = r.px.price;
+  const list = [];
+  for (const run of S.history) {
+    const days = (Date.now() - run.ranAt) / 864e5;
+    if (days < 3) continue;
+    for (const c of (run.calls||[])) {
+      const p0 = +c.price, p1 = pxNow[c.symbol];
+      if (!p0 || !p1) continue;
+      const ret = (p1/p0 - 1) * 100, a = String(c.action||"").toUpperCase();
+      const hit = a.startsWith("BUY") ? ret > 0 : (a === "SELL" || a === "TRIM") ? ret < 0 : null;
+      list.push({ ranAt:run.ranAt, symbol:c.symbol, action:a, ret, hit, days:Math.round(days), fb:run.feedback?.[c.symbol] });
+    }
+  }
+  const scored = list.filter(x => x.hit !== null);
+  return { list, scored:scored.length, hits:scored.filter(x => x.hit).length };
+}
+async function saveMemory(mem){
+  if (!memRef || !mem) return;
+  const lessons = (Array.isArray(mem.lessons) ? mem.lessons : []).map(String).filter(Boolean).slice(0, 14);
+  const doc = { investorProfile:String(mem.investorProfile || S.memory?.investorProfile || "").slice(0, 1500), lessons, updatedAt:Date.now(), sessions:(S.memory?.sessions||0) + 1 };
+  try { await memRef.set(doc); S.memory = doc; } catch {}
+}
+async function recordRun(doc){
+  if (!histCol) return;
+  const px = {}; for (const r of rows()) if (r.px) px[r.h.label] = r.px.price;
+  const run = { ranAt:doc.ranAt, calls:(doc.signals||[]).map(s => ({ symbol:s.symbol, action:s.action, confidence:s.confidence, price:px[s.symbol] ?? null })), feedback:{} };
+  try {
+    await histCol.doc(String(doc.ranAt)).set(run);
+    const old = [...S.history].sort((a,b) => b.ranAt - a.ranAt).slice(59);
+    for (const o of old) { try { await histCol.doc(String(o.ranAt)).delete(); } catch {} }
+  } catch {}
+}
+function diChart(){
+  const m = S.macro; if (!m || !Array.isArray(m.di) || m.di.length < 3) return "";
+  const pts = m.di.map(x => ({ c:x.c, r:+x.r, t:(Date.parse(x.m + "-01") - Date.parse(m.date)) / (365.25*864e5) })).filter(p => isFinite(p.t) && isFinite(p.r)).sort((a,b) => a.t - b.t);
+  const W = 640, H = 230, L = 44, R = 14, T = 16, B = 34;
+  const lo = Math.floor(Math.min(...pts.map(p=>p.r)) * 4) / 4 - 0.25, hi = Math.ceil(Math.max(...pts.map(p=>p.r)) * 4) / 4 + 0.25;
+  const tmax = Math.ceil(Math.max(...pts.map(p=>p.t)));
+  const x = t => L + (t / tmax) * (W - L - R), y = r => T + (hi - r) / (hi - lo) * (H - T - B);
+  const yTicks = []; for (let v = Math.ceil(lo*2)/2; v <= hi + 1e-9; v += 0.5) yTicks.push(v);
+  const xTicks = []; for (let v = 0; v <= tmax; v += (tmax > 10 ? 2 : 1)) xTicks.push(v);
+  const path = pts.map((p,i) => `${i?"L":"M"}${x(p.t).toFixed(1)},${y(p.r).toFixed(1)}`).join("");
+  const area = path + `L${x(pts[pts.length-1].t).toFixed(1)},${(H-B)}L${x(pts[0].t).toFixed(1)},${(H-B)}Z`;
+  const selicY = y(+m.selic);
+  const labels = pts.filter(p => /F(27|29|31|33|36|41)$/.test(p.c));
+  return `<svg class="di" viewBox="0 0 ${W} ${H}" role="img" aria-label="DI futures curve">
+    ${yTicks.map(v => `<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" class="g"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end" class="t">${v.toFixed(1)}</text>`).join("")}
+    ${xTicks.map(v => `<text x="${x(v)}" y="${H-B+16}" text-anchor="middle" class="t">${v}y</text>`).join("")}
+    ${isFinite(selicY) && selicY > T && selicY < H-B ? `<line x1="${L}" x2="${W-R}" y1="${selicY}" y2="${selicY}" class="selic"/><text x="${W-R}" y="${selicY-5}" text-anchor="end" class="t">Selic ${m.selic}%</text>` : ""}
+    <path d="${area}" class="a"/><path d="${path}" class="l"/>
+    ${labels.map(p => `<circle cx="${x(p.t)}" cy="${y(p.r)}" r="3.5" class="p"/><text x="${x(p.t)}" y="${y(p.r)-9}" text-anchor="middle" class="t b">${p.c.replace("DI1","")} ${p.r.toFixed(2)}</text>`).join("")}
+  </svg>`;
+}
+function ratesPanel(){
+  const m = S.macro;
+  if (!m) return `<section class="brief-head"><span class="label">Brazil rates</span><p class="muted" style="margin:0">The DI curve arrives with the next hourly update.</p></section>`;
+  return `<section class="brief-head rates"><div class="row1"><span class="label">Brazil rates · DI futures</span><span class="muted" style="font-size:12px">B3 settlement ${esc(m.date)} · Selic ${esc(m.selic)}% · updated ${esc(ago(m.updatedAt))}</span></div>
+    <div class="chartwrap">${diChart()}</div>${m.notes ? `<p style="margin:0;font-size:13px;color:var(--ink-2);max-width:90ch">${esc(m.notes)}</p>` : ""}</section>`;
+}
+function learnedPanel(){
+  const mm = S.memory, sc = scorecard();
+  if (!mm && !sc.list.length) return "";
+  const recent = sc.list.slice(0, 12);
+  return `<section class="brief-head"><div class="row1"><span class="label">What the agent has learned</span><span class="muted" style="font-size:12px">${mm?.sessions||0} session${mm?.sessions===1?"":"s"}${sc.scored ? ` · ${sc.hits}/${sc.scored} directional calls right` : ""}</span></div>
+    ${mm?.investorProfile ? `<p style="margin:0;font-size:13.5px;max-width:90ch"><b>Your profile:</b> ${esc(mm.investorProfile)}</p>` : ""}
+    ${mm?.lessons?.length ? `<ul class="bul">${mm.lessons.map((l,i) => `<li>${esc(l)} <button class="btn sm ghost" data-forget="${i}" title="Remove this lesson">Forget</button></li>`).join("")}</ul>` : ""}
+    ${recent.length ? `<div class="chips">${recent.map(x => `<span class="tag ${x.hit===true?"hit":x.hit===false?"miss":""}">${esc(isoDay(x.ranAt).slice(5))} ${esc(x.symbol)} ${esc(x.action)} ${x.ret>0?"+":""}${x.ret.toFixed(1)}%</span>`).join("")}</div>` : ""}
+  </section>`;
+}
+
+/* ---------- deep dive: one company, scenarios ---------- */
+function companyMaterial(h, budget){
+  const reps = (S.reports||[]).filter(r => (r.symbols||[]).includes(h.label));
+  const dfs = reps.find(r => r.kind === "dfs");
+  const calls = reps.filter(r => r.kind === "call").sort((a,b) => String(b.id).localeCompare(String(a.id)));
+  const rels = reps.filter(r => r.kind === "release").sort((a,b) => String(b.date||"").localeCompare(String(a.date||"")));
+  const lets = reps.filter(r => r.kind === "letter" || r.kind === "article").sort((a,b) => String(b.date||"").localeCompare(String(a.date||"")));
+  const ups = reps.filter(r => !["dfs","call","release","letter","article"].includes(r.kind)).sort((a,b) => (b.addedAt||0) - (a.addedAt||0));
+  return { dfs, calls, rels, lets, ups };
+}
+async function deepDive(label){
+  const h = (S.holdings||[]).find(x => x.label === label);
+  if (!h || !sample || S.deepBusy) return false;
+  deepCtl = new AbortController();
+  S.deepBusy = label; S.deepErr[label] = null; S.deepProgress = `Reading ${label}'s statements and calls…`; render();
+  try {
+    const r = rows().find(x => x.h.label === label);
+    const t = h.rpId && S.tear[h.rpId];
+    const { dfs, calls, rels, lets, ups } = companyMaterial(h);
+    const refs = {}; let k = 0; const ref = (obj) => { const key = "S" + (++k); refs[key] = obj; return key; };
+    const parts = [];
+    parts.push(`POSITION: ${JSON.stringify({ symbol:h.label, company:h.name, currency:h.currency, shares:r?.shares, avgCost:r?.avg, lastPrice:r?.px?.price ?? null, priceDay:r?.px?.day ?? null, unrealizedPct:r?.pnlPct!=null ? +r.pnlPct.toFixed(1) : null, investorTarget:h.target ?? null, investorStop:h.stop ?? null, street: t ? { listing:t.ticker, consensusTarget:t.price_target?.value ?? null, low:t.price_target?.low ?? null, high:t.price_target?.high ?? null, currency:t.price_target?.currency } : null })}`);
+    parts.push(`INVESTOR'S NOTES: ${h.research ? JSON.stringify(String(h.research).slice(0,2000)) : "(none written)"}`);
+    parts.push(`RATES: ${diCompact()}`);
+    parts.push(`YOUR MEMORY: ${memoryCompact()}`);
+    if (dfs) { const key = ref({ kind:"report", id:dfs.id, title:dfs.title, source:dfs.publisher }); parts.push(`[${key}] FINANCIAL STATEMENTS:\n${dfs.text}`); }
+    else if (!rels.length) parts.push("FINANCIAL STATEMENTS: not on file. Say so and treat the gap as a risk.");
+    for (const x of rels.slice(0,4)) { const key = ref({ kind:"report", id:x.id, title:x.title, source:x.publisher }); parts.push(`[${key}] EARNINGS RELEASE ${x.period||""} (${x.date}):\n${String(x.text).slice(0,6000)}`); }
+    for (const c of calls.slice(0,4)) { const key = ref({ kind:"report", id:c.id, title:c.title, source:c.publisher }); parts.push(`[${key}] EARNINGS CALL ${c.period||""} (${c.date}) — management remarks and Q&A excerpts:\n${String(c.text).slice(0,7000)}`); }
+    for (const x of lets.slice(0,4)) { const key = ref({ kind:"report", id:x.id, title:x.title, source:x.publisher }); parts.push(`[${key}] ${x.kind === "letter" ? "FUND-MANAGER LETTER" : "ARTICLE"} "${x.title}" by ${x.publisher||"unknown"}, ${x.date||"undated"}:\n${String(x.text).slice(0,4000)}`); }
+    for (const u of ups.slice(0,3)) { const key = ref({ kind:"report", id:u.id, title:u.title, source:u.publisher }); parts.push(`[${key}] RESEARCH REPORT "${u.title}" by ${u.publisher||"unknown"}, ${u.date||"undated"} (id=${u.id}, ${u.chars} chars; read_report for more):\n${String(u.text).slice(0,9000)}`); }
+    for (const n of coNews(h).slice(0,6)) { const key = ref({ kind:"news", id:n.id, title:n.headline, url:n.url, source:n.source }); parts.push(`[${key}] NEWS ${n.source}, ${isoDay(n.t)}: ${n.headline} — ${n.text.slice(0,350)}`); }
+    const prompt = `You are a skeptical buy-side analyst reviewing one position for a young investor in São Paulo who wants to be challenged. Analyse ${h.name || h.label} (${h.label}) from the last four quarters' earnings releases and financial statements, the last four earnings calls, any research he uploaded, recent news and his own notes. Then build the scenarios that matter for the next 12 months.
+
+Rules:
+- Use only numbers from the material below or label them clearly as your assumptions. Statement figures come from a data provider and may differ from the company's adjusted numbers; when a call quotes different figures, say which and why it matters.
+- Track the trend across the four quarters (growth, margins, leverage, cash conversion, capital allocation), not just the last one. Prefer the release's own and recurring figures; note one-offs.
+- Use the DI curve to judge cost of capital, financing cost and the macro case in each scenario.
+- Compare what management promised on the calls with what the numbers show.
+- Scenarios: exactly Bear, Base and Bull, probabilities summing to 100. For each, give the narrative, the 2-4 drivers, a value view with its logic (for example multiple × metric, or dividend yield), and signposts that would tell him it is playing out.
+- Argue both sides fairly first: list genuine strengths as carefully as red flags, and say where fund managers' letters agree or disagree with the numbers.
+- Then be provocative and specific about his position: his cost, his notes, his sizing. No insults, no motivational talk. English only.
+- Cite material by key, e.g. [S1]. You may call tools for a specific gap; keep it to a few calls.
+
+Reply with only this JSON:
+{"verdict":"BUY MORE|HOLD|TRIM|SELL","confidence":"low|medium|high","summary":"3-4 sentences","financials":["4-6 bullets with numbers and quarter labels"],"management":["3-4 bullets: what management said or promised vs what the numbers show"],"strengths":["2-4 bullets"],"redFlags":["2-4 bullets"],"managerViews":"1-3 sentences on what fund-manager letters and articles say, or that none cover it","scenarios":[{"name":"Bear","probability":25,"narrative":"2-3 sentences","drivers":["..."],"valueView":"price or % range with the logic","signposts":["..."]},{"name":"Base",...},{"name":"Bull",...}],"critique":"2-3 blunt sentences about his position","provocations":["2-3 hard questions"],"refs":["S1"]}
+
+${parts.join("\n\n")}`;
+    const lim = await sample.limits().catch(() => null);
+    const opts = { modelTier:"complex", signal:deepCtl.signal, onText:() => { if (!/Writing/.test(S.deepProgress)) { S.deepProgress = `Writing ${label}'s deep dive…`; render(); } } };
+    if (lim?.tools && mcp) opts.tools = agentTools(msg => { S.deepProgress = msg; render(); }); else opts.cache = false;
+    const res = await sample.json(prompt, opts);
+    if (!res || !Array.isArray(res.scenarios)) throw { code:"invalid_json" };
+    const arr = v => (Array.isArray(v) ? v : []).map(String).slice(0, 8);
+    const doc = {
+      symbol:h.label, verdict:String(res.verdict||""), confidence:String(res.confidence||""), summary:String(res.summary||""),
+      financials:arr(res.financials), management:arr(res.management), strengths:arr(res.strengths), redFlags:arr(res.redFlags), managerViews:String(res.managerViews||""),
+      scenarios:res.scenarios.slice(0,3).map(s => ({ name:String(s.name||""), probability:Number(s.probability)||0, narrative:String(s.narrative||""), drivers:arr(s.drivers), valueView:String(s.valueView||""), signposts:arr(s.signposts) })),
+      critique:String(res.critique||""), provocations:arr(res.provocations),
+      refs:Object.fromEntries(arr(res.refs).filter(x => refs[x]).map(x => [x, refs[x]])),
+      sources:{ dfs:!!dfs, releases:rels.length, calls:calls.length, letters:lets.length, reports:ups.length }, ranAt:Date.now()
+    };
+    S.deep[label] = doc; S.deepOpen = label;
+    if (deepCol) { try { await deepCol.doc(safeId(label)).set(doc); } catch {} }
+    return true;
+  } catch (e) {
+    if (e?.code !== "cancelled") S.deepErr[label] = e;
+    if (["not_granted","sampling_disabled","not_declared","capability_disabled","capability_removed"].includes(e?.code)) S.sampleOK = false;
+    return e?.code !== "cancelled" && !["rate_limited","not_granted","sampling_disabled"].includes(e?.code);
+  } finally { S.deepBusy = null; S.deepProgress = ""; render(); }
+}
+async function deepDiveAll(){
+  S.deepQueue = (S.holdings||[]).map(h => h.label); render();
+  while (S.deepQueue.length) {
+    const next = S.deepQueue[0];
+    const ok = await deepDive(next);
+    S.deepQueue.shift();
+    if (!ok) { S.deepQueue = []; break; }
+  }
+  render();
+}
+
+/* ---------- agent ---------- */
+function reportsFor(label){ return (S.reports||[]).filter(r => (r.symbols||[]).includes(label)); }
+function buildPrompt(){
+  const R = rows();
+  const refs = {}; let n = 0, t = 0, rp = 0;
+  const addRef = (prefix, obj) => { const k = prefix + (prefix==="N" ? ++n : prefix==="T" ? ++t : ++rp); refs[k] = obj; return k; };
+  const lines = [];
+
+  const market = mktNews().sort((a,b)=>(b.t||0)-(a.t||0)).slice(0, 24);
+  lines.push("MARKET NEWS:");
+  for (const x of market) { const k = addRef("N", { kind:"news", id:x.id, title:x.headline, url:x.url, source:x.source }); lines.push(`[${k}] ${x.source}, ${isoDay(x.t)}: ${x.headline} — ${x.text.slice(0,300)}`); }
+
+  const wide = (S.reports||[]).filter(r => (r.symbols||[]).includes("ALL")).sort((a,b) => String(b.date||"").localeCompare(String(a.date||"")));
+  if (wide.length) {
+    lines.push("\nPORTFOLIO-WIDE RESEARCH (fund-manager letters, macro articles and reports):");
+    for (const r of wide.slice(0,4)) { const k = addRef("R", { kind:"report", id:r.id, title:r.title, source:r.publisher }); lines.push(`[${k}] id=${r.id} "${r.title}" by ${r.publisher||"unknown"}, ${r.date||"undated"} (${r.chars} chars; call read_report for more):\n${String(r.text||"").slice(0,3000)}`); }
+  }
+
+  const pos = R.map(r => {
+    const h = r.h, tr = h.rpId && S.tear[h.rpId];
+    const block = [];
+    block.push(`\n=== ${h.label} — ${h.name||""} ===`);
+    block.push(JSON.stringify({
+      symbol:h.label, currency:h.currency, shares:r.shares, avgCost:r.avg, lastPrice:r.px?.price ?? null, priceDay:r.px?.day ?? null,
+      dayChangePct:r.px && isFinite(r.px.chgPct) ? +r.px.chgPct.toFixed(2) : null,
+      unrealizedPct:r.pnlPct!=null ? +r.pnlPct.toFixed(1) : null, positionValue:r.value!=null ? Math.round(r.value) : null,
+      investorTarget:h.target ?? null, investorStop:h.stop ?? null,
+      street: tr ? { listing:tr.ticker, currency:tr.price?.currency, consensusTarget:tr.price_target?.value ?? null, low:tr.price_target?.low ?? null, high:tr.price_target?.high ?? null, sentiment:tr.sentiment?.value ?? null, lastEpsSurprisePct:tr.eps?.surprise!=null ? +(+tr.eps.surprise).toFixed(1) : null } : null
+    }));
+    block.push(`Investor's own notes: ${h.research ? JSON.stringify(String(h.research).slice(0,1500)) : "(none written)"}`);
+    const cn = coNews(h).slice(0,6);
+    if (cn.length) { block.push("Company news:"); for (const x of cn) { const k = addRef("N", { kind:"news", id:x.id, title:x.headline, url:x.url, source:x.source }); block.push(`[${k}] ${x.source}, ${isoDay(x.t)}: ${x.headline} — ${x.text.slice(0,320)}`); } }
+    else block.push("Company news: none found this week.");
+    const cc = (S.calls[h.id]||[]).slice(0,4);
+    if (cc.length) { block.push("Earnings calls / filings:"); for (const x of cc) { const k = addRef("T", { kind:"call", id:x.id, title:x.headline, url:x.url, source:x.source }); block.push(`[${k}] ${x.source}, ${isoDay(x.t)}: ${x.headline} — ${x.text.slice(0,600)}`); } }
+    const { dfs, calls: packCalls, rels, lets, ups } = companyMaterial(h);
+    for (const x of lets.slice(0,2)) { const k = addRef("R", { kind:"report", id:x.id, title:x.title, source:x.publisher }); block.push(`[${k}] ${x.kind === "letter" ? "Fund-manager letter" : "Article"}: "${x.title}" by ${x.publisher||"unknown"}, ${x.date||"undated"} (id=${x.id}):\n${String(x.text||"").slice(0,1600)}`); }
+    if (rels[0]) { const x = rels[0]; const k = addRef("R", { kind:"report", id:x.id, title:x.title, source:x.publisher }); block.push(`[${k}] Latest earnings release ${x.period||""} (id=${x.id}; older releases via read_report: ${rels.slice(1).map(r=>r.id).join(", ")||"none"}):\n${String(x.text).slice(0,1800)}`); }
+    if (dfs) { const k = addRef("R", { kind:"report", id:dfs.id, title:dfs.title, source:dfs.publisher }); block.push(`[${k}] Financial statements, last 4 quarters:\n${String(dfs.text).slice(0,2600)}`); }
+    if (packCalls[0]) { const c = packCalls[0]; const k = addRef("R", { kind:"report", id:c.id, title:c.title, source:c.publisher }); block.push(`[${k}] Latest earnings call ${c.period||""} (id=${c.id}; read_report for the full excerpt and older calls: ${packCalls.slice(1).map(x=>x.id).join(", ")||"none"}):\n${String(c.text).slice(0,1500)}`); }
+    for (const x of ups.slice(0,2)) { const k = addRef("R", { kind:"report", id:x.id, title:x.title, source:x.publisher }); block.push(`[${k}] Research report id=${x.id} "${x.title}" by ${x.publisher||"unknown"}, ${x.date||"undated"} (${x.chars} chars; read_report for more):\n${String(x.text||"").slice(0,2000)}`); }
+    const dd = S.deep[h.label];
+    if (dd) block.push(`Earlier deep dive (${isoDay(dd.ranAt)}): verdict ${dd.verdict} (${dd.confidence}). ${dd.summary} Scenarios: ${dd.scenarios.map(s => `${s.name} ${s.probability}% → ${s.valueView}`).join("; ")}.`);
+    return block.join("\n");
+  }).join("\n");
+
+  const totals = {}; for (const r of R) { const c = r.h.currency; totals[c] = (totals[c]||0) + (r.value||0); }
+  const weights = R.map(r => `${r.h.label} ${totals[r.h.currency] ? (100*(r.value||0)/totals[r.h.currency]).toFixed(1) : "?"}%`).join(", ");
+  const losers = R.filter(r => r.pnlPct!=null && r.pnlPct < -15).map(r => `${r.h.label} ${r.pnlPct.toFixed(0)}%`).join(", ");
+
+  const prompt = `You are the agent on an individual investor's market desk: a rigorous, balanced equity analyst who has read everything below. The investor is a young finance professional in São Paulo who wants a fair hearing of both sides and then to be challenged, not reassured. Your job is to analyse the releases, statements, earnings calls, fund-manager letters, articles and news on every company he owns, compare them with his own notes, lay out the strongest case for and against each position, and then tell him what you think — including what he does not want to hear.
+
+How to behave:
+- Argue both sides honestly. For every position give the strongest bull case and the strongest bear case, each backed by evidence, before you judge. Credit what is genuinely working; do not manufacture negatives.
+- Treat fund-manager letters (FIA managers such as Guepardo) and articles as informed second opinions: say where they agree or disagree with his thesis and with the numbers, and never take them as gospel.
+- Then be direct and provocative. Challenge his reasoning, his position sizing and his habits. Name biases you can see in the data (anchoring on cost, averaging down into losers, holding for "concessions" without a valuation case, needing the cash but staying invested, diversifying into many small bets, no stop or target written down).
+- Every claim must rest on the data given here or on what your tools return. Cite sources by their keys like [N3], [T1], [R2]. Do not invent figures, dates or events. If you lack evidence, say so and treat that gap as a critique.
+- Separate what the news says from what the research and earnings calls say, and say where they disagree with his thesis.
+- Provoke with specific questions he must answer before his next trade, not generic ones.
+- No insults, no motivational talk. Write in English even when sources are Portuguese.
+- You may call tools to dig deeper on the one or two positions where the evidence is thinnest or most worrying. Keep it to a few calls.
+
+Indications per position: "BUY MORE", "HOLD", "TRIM", "SELL" or "WATCH", with low/medium/high confidence. If price is at or past his target or stop, address it.
+
+RATES: ${diCompact()}
+Use the curve: what it implies for the Selic path, the discount rate on long-duration and regulated cash flows, financing costs for leveraged names, and consumer credit for retailers. Tie this to specific positions.
+
+YOUR MEMORY FROM EARLIER SESSIONS (refine it; drop lessons the evidence no longer supports):
+${memoryCompact()}
+
+Portfolio facts: weights by value within each currency — ${weights || "n/a"}. Positions more than 15% under cost — ${losers || "none"}.
+
+Reply with only this JSON:
+{"marketView":"2-3 sentences on what matters for this portfolio today",
+ "riskLevel":"low|elevated|high",
+ "strengths":"2-3 sentences on what is genuinely working in the portfolio and why",
+ "portfolioCritique":"4-6 blunt sentences on the portfolio as a whole: construction, behaviour, what he is avoiding",
+ "provocations":["3 to 5 pointed questions for him, each one sentence"],
+ "ratesView":"2-3 sentences: what the DI curve says and which positions it helps or hurts",
+ "signals":[{"symbol":"<symbol exactly as given>","action":"BUY MORE|HOLD|TRIM|SELL|WATCH","confidence":"low|medium|high","headline":"max 12 words","bullCase":"2-3 sentences: the strongest case for owning it, with evidence","bearCase":"2-3 sentences: the strongest case against, with evidence","managerViews":"1-2 sentences: what fund-manager letters or articles on file say about it, or that none mention it","newsTake":"1-3 sentences: what the news says","researchTake":"1-3 sentences: what the release, statements, earnings calls and research say, or that there is none","critique":"2-3 sentences challenging his position or thesis","provocation":"one hard question","researchCheck":"supports|challenges|neutral|no notes","watch":"one concrete price level or dated event","refs":["N1","T2"]}],
+ "memory":{"investorProfile":"what you now know about how this investor decides, in 2-4 sentences","lessons":["up to 12 short, durable lessons for your future self: about this investor's habits, which of your past calls worked or failed and why, and how each company tends to behave around results"]}}
+One signal per position, in the order given.
+
+${lines.join("\n")}
+
+POSITIONS:${pos}`;
+  return { prompt, refs };
+}
+
+function agentTools(say){
+  say = say || (msg => { S.progress = msg; render(); });
+  const tools = [
+    { name:"search_bigdata",
+      description:"Search Bigdata.com news, earnings-call transcripts and filings for one specific question. Returns up to 5 results with source, date, headline and excerpt.",
+      inputSchema:{ type:"object", properties:{ query:{ type:"string", description:"A natural-language question naming the company and one aspect, e.g. 'Lojas Renner Q3 2026 gross margin and inventory'" } }, required:["query"] },
+      execute: async (input, ctx) => {
+        const q = String(input.query||"").slice(0,400); if (!q) throw new Error("query is required");
+        say(`Searching: ${q}`);
+        const r = await mcp.callTool(BD, "bigdata_search", { request:{ search_mode:"smart", query:{ text:q, max_chunks:6 } } }, { signal:ctx.signal });
+        return parseNews(r.payload, "search").slice(0,5).map(x => ({ source:x.source, date:isoDay(x.t), headline:x.headline, excerpt:x.text.slice(0,900) }));
+      } },
+    { name:"company_fundamentals",
+      description:"Get ratios, key metrics, analyst ratings, latest earnings, earnings calendar and dividends for one of the investor's positions. Returns a text excerpt.",
+      inputSchema:{ type:"object", properties:{ symbol:{ type:"string", description:"Position symbol exactly as listed, e.g. KLBN11" } }, required:["symbol"] },
+      execute: async (input, ctx) => {
+        const h = (S.holdings||[]).find(x => x.label === String(input.symbol||"").toUpperCase());
+        if (!h || !h.rpId) throw new Error("No fundamentals available for that symbol");
+        say(`Pulling fundamentals for ${h.label}`);
+        const r = await mcp.callTool(BD, "bigdata_company_tearsheet", { rp_entity_id:h.rpId, company_type:"Public", sections:["financial_ratios","key_metrics","analyst_ratings","latest_earnings","earnings_calendar","dividends"] }, { signal:ctx.signal });
+        const p = r.payload; const txt = typeof p === "string" ? p : JSON.stringify(p);
+        return txt.slice(0, 7000);
+      } }
+  ];
+  if ((S.reports||[]).length) tools.push({ name:"read_report",
+    description:"Read more of a research report the investor uploaded. Returns up to 6000 characters starting at offset.",
+    inputSchema:{ type:"object", properties:{ id:{ type:"string", description:"Report id from the prompt" }, offset:{ type:"number", description:"Character offset to start from" } }, required:["id"] },
+    execute: (input) => {
+      const r = (S.reports||[]).find(x => x.id === String(input.id));
+      if (!r) throw new Error("Unknown report id");
+      const off = Math.max(0, Number(input.offset)||0);
+      say(`Reading “${r.title}”`);
+      return { title:r.title, offset:off, total:r.chars, text:String(r.text||"").slice(off, off+6000) };
+    } });
+  return tools;
+}
+
+async function runAgent(){
+  if (!sample || S.agentBusy || !(S.holdings||[]).length) return;
+  agentCtl = new AbortController();
+  S.agentBusy = true; S.agentErr = null; S.progress = "Reading the news, calls and reports…"; render();
+  const dataAsOf = S.lastData || Date.now();
+  try {
+    const { prompt, refs } = buildPrompt();
+    const lim = await sample.limits().catch(() => null);
+    const opts = { modelTier:"complex", signal:agentCtl.signal, onText:() => { if (!/Writing/.test(S.progress)) { S.progress = "Writing the briefing…"; render(); } } };
+    if (lim?.tools && mcp) opts.tools = agentTools(); else opts.cache = false;
+    const res = await sample.json(prompt, opts);
+    if (!res || !Array.isArray(res.signals)) throw { code:"invalid_json" };
+    const okRef = k => typeof k === "string" && refs[k];
+    const doc = {
+      marketView:String(res.marketView||""), riskLevel:String(res.riskLevel||""),
+      portfolioCritique:String(res.portfolioCritique||""), ratesView:String(res.ratesView||""), strengths:String(res.strengths||""), source:"page",
+      provocations:(Array.isArray(res.provocations)?res.provocations:[]).map(String).slice(0,6),
+      signals:res.signals.slice(0,40).map(s => ({
+        symbol:String(s.symbol||""), action:String(s.action||""), confidence:String(s.confidence||""), headline:String(s.headline||""),
+        bullCase:String(s.bullCase||""), bearCase:String(s.bearCase||""), managerViews:String(s.managerViews||""),
+        newsTake:String(s.newsTake||""), researchTake:String(s.researchTake||""), critique:String(s.critique||""), provocation:String(s.provocation||""),
+        researchCheck:String(s.researchCheck||""), watch:String(s.watch||""), refs:(Array.isArray(s.refs)?s.refs:[]).filter(okRef).slice(0,8)
+      })),
+      refs:Object.fromEntries(Object.entries(refs).filter(([k]) => res.signals.some(s => (s.refs||[]).includes(k)))),
+      ranAt:Date.now(), dataAsOf
+    };
+    S.agent = doc;
+    if (agentRef) { try { await agentRef.set(doc); } catch {} }
+    await recordRun(doc);
+    if (res.memory) await saveMemory(res.memory);
+  } catch (e) {
+    if (e?.code !== "cancelled") {
+      S.agentErr = e;
+      if (["not_granted","sampling_disabled","not_declared","capability_disabled","capability_removed"].includes(e?.code)) S.sampleOK = false;
+    }
+  } finally { S.agentBusy = false; S.progress = ""; render(); }
+}
+
+/* ---------- render: status ---------- */
+function renderStatus(){
+  const el = $("#status"); if (!el) return;
+  if (S.noRuntime) { el.innerHTML = `<span class="muted">Open in Claude to load live data</span>`; return; }
+  const last = S.lastData;
+  const stale = !last || Date.now() - last > REFRESH + 5*60*1000;
+  const next = last ? Math.max(0, last + REFRESH - Date.now()) : null;
+  el.innerHTML = `<span><span class="dot ${stale?"stale":""}"></span>${last ? "Updated " + esc(ago(last)) : "Loading data…"}${next ? ` · next in ${Math.ceil(next/60000)} min` : ""}</span>
+    <button class="btn sm" id="refresh" ${mcp?"":"disabled"}>Refresh now</button>`;
+}
+
+/* ---------- render: portfolio ---------- */
+function portfolioHead(){
+  const out = [];
+  if (S.noStore) out.push(`<div class="notice err"><p>Your positions are saved privately to your Claude account. Sign in to Claude to add and keep them.</p></div>`);
+  if (S.holdErr) out.push(`<div class="notice err"><p>Your saved positions couldn't be loaded (${esc(S.holdErr.code)}). Reload the page to try again.</p></div>`);
+  const R = rows();
+  const miss = R.filter(r => !r.px && (S.quoteErr[r.h.symbol] || S.tdErr[r.h.symbol]) && !S.backup[r.h.label]).map(r => r.h.label);
+  if (miss.length) {
+    const planBlocked = miss.some(l => { const h = R.find(r=>r.h.label===l).h; return S.tdErr[h.symbol]?.plan; });
+    out.push(`<div class="notice warn"><p>No live price for ${esc(miss.join(", "))}. Bigdata.com doesn't quote that share class, Alpha Vantage refused (free-plan limit)${planBlocked ? ", and Twelve Data needs its Grow plan for B3 symbols" : ", and Twelve Data hasn't answered yet"}. The last good price stays on screen when there is one.</p></div>`);
+  }
+  const auth = [Object.values(S.quoteErr).find(e => e.e && needsAllow(e.e))?.e, S.mktErr.global, S.tearErr].find(e => e && needsAllow(e));
+  if (auth) out.push(`<div class="notice warn"><p>${esc(errCopy(auth))} Allow the connectors so prices and news can load.</p><button class="btn sm primary" id="allow">Allow connectors</button></div>`);
+
+  const by = {};
+  for (const r of R) { const c = r.h.currency || "BRL"; by[c] = by[c] || { value:0, cost:0, day:0 }; const b = by[c]; if (r.value!=null){ b.value+=r.value; b.cost+=r.cost; } if (r.dayPnl!=null) b.day+=r.dayPnl; }
+  const curs = Object.keys(by).sort((a,b)=> a==="BRL"?-1:b==="BRL"?1:a.localeCompare(b));
+  const line = fn => curs.length ? curs.map(fn).join("") : `<div class="v">—</div>`;
+  const signals = S.agent?.signals || [];
+  const actionable = signals.filter(s => /BUY|SELL|TRIM/i.test(s.action)).length;
+  const main = curs[0] || "BRL", mb = by[main] || { value:0, cost:0, day:0 };
+  const dayPct = mb.value ? mb.day/(mb.value-mb.day)*100 : null, unr = mb.value - mb.cost;
+  const W = weights(R);
+  const allocR = R.filter(r => r.h.currency === main && r.value).sort((a,b) => b.value - a.value);
+  const others = curs.slice(1).map(c => `${fmtMoney(by[c].value,c)} ${c}`).join(" · ");
+  out.push(`<section class="hero" aria-label="Portfolio summary">
+    <div class="hero-main"><span class="label">Portfolio value</span>
+      <div class="big">${R.length ? fmtMoney(mb.value, main) : "—"}<small>${main}</small></div>
+      <div class="hero-sub">${mb.day ? `<span class="chg ${cls(mb.day)}">${mb.day>0?"+":""}${fmtMoney(mb.day, main)} · ${fmtPct(dayPct)}</span><span>last session</span>` : `<span>Prices update every 15 minutes, with an hourly backup.</span>`}${others ? `<span>+ ${esc(others)}</span>` : ""}</div>
+    </div>
+    <div class="hero-stats">
+      <div><span class="label">Invested</span><span class="v">${fmtMoney(mb.cost, main)}</span><span class="s muted">${R.length} positions</span></div>
+      <div><span class="label">Unrealized</span><span class="v ${cls(unr)}">${unr>0?"+":""}${fmtMoney(unr, main)}</span><span class="s ${cls(unr)}">${fmtPct(mb.cost ? unr/mb.cost*100 : null)}</span></div>
+      <div><span class="label">Agent</span><span class="v">${S.agent ? `${actionable}<small class="muted" style="font-size:12px"> / ${signals.length}</small>` : "—"}</span><span class="s muted">${S.agent ? "actionable calls" : "no briefing yet"}</span></div>
+    </div>
+    ${allocR.length ? `<div class="alloc"><div class="alloc-bar" role="img" aria-label="Allocation by position">${allocR.map(r => `<span style="width:${W[r.h.label].toFixed(2)}%;background:${colorFor(r.h.label)}" title="${esc(r.h.label)} ${W[r.h.label].toFixed(1)}%"></span>`).join("")}</div>
+      <div class="alloc-legend">${allocR.map(r => `<span><i style="background:${colorFor(r.h.label)}"></i>${esc(r.h.label)} ${W[r.h.label].toFixed(1)}%</span>`).join("")}</div></div>` : ""}
+  </section>`);
+  out.push(`<div class="bar"><h2>Positions</h2><span class="sp"></span>${S.noStore?"":`<button class="btn primary" id="add">${S.formOpen && !S.editing ? "Close form" : "Add position"}</button>`}</div>`);
+  return out.join("");
+}
+
+function portfolioBody(){
+  const R = rows(); const W = weights(R);
+  if (S.holdings === null && !S.noStore && !S.noRuntime) return `<div class="tablewrap" style="padding:16px"><div class="skel" style="width:40%"></div><div class="skel"></div><div class="skel" style="width:70%"></div></div>`;
+  if (!R.length) return `<div class="empty"><h3>No positions yet</h3><p>Add each stock you hold with its ticker, quantity and average cost. Target and stop levels plus your own notes give the agent something to argue with. B3 tickers like PETR4 are quoted in reais, US tickers in dollars.</p>${S.noStore?"":`<button class="btn primary" id="add2">Add your first position</button>`}</div>`;
+  const body = R.map(r => {
+    const h = r.h, open = S.open === h.id, sig = signalFor(h.label), t = h.rpId && S.tear[h.rpId];
+    let rng = `<span class="muted">—</span>`;
+    if (h.stop && h.target && r.px) {
+      const lo = +h.stop, hi = +h.target, pos = Math.max(0, Math.min(100, (r.px.price - lo) / (hi - lo) * 100));
+      rng = `<span class="range" title="Stop ${fmtNum(lo)} → target ${fmtNum(hi)}"><span class="track"><span class="pin" style="left:${pos}%"></span></span><span class="ends"><span>${fmtNum(lo)}</span><span>${fmtNum(hi)}</span></span></span>`;
+    } else if (h.target || h.stop) rng = `<span class="num sub">${h.stop?"stop "+fmtNum(+h.stop):""}${h.stop&&h.target?" · ":""}${h.target?"tgt "+fmtNum(+h.target):""}</span>`;
+    const street = t && t.price_target?.value!=null
+      ? `<span class="num">${fmtMoney(t.price_target.value, t.price_target.currency)}</span><span class="sub">${esc(t.ticker||"")}${t.sentiment?.value!=null?` · sent ${t.sentiment.value>0?"+":""}${(+t.sentiment.value).toFixed(2)}`:""}</span>`
+      : `<span class="muted">—</span>`;
+    const failed = S.quoteErr[h.symbol] && !S.td[h.symbol] && !S.backup[h.label];
+    const pxCell = r.px ? `<span class="num">${fmtMoney(r.px.price, h.currency)}</span><span class="sub">${esc(r.px.src)}${r.px.day?" · "+esc(r.px.day):""}</span>`
+      : failed ? `<span class="muted">unavailable</span><span class="sub">all sources refused</span>` : `<span class="muted">loading…</span>`;
+    let html = `<tr class="row ${open?"open":""}" data-id="${esc(h.id)}" tabindex="0" aria-expanded="${open}">
+      <td><div class="tk"><b><i class="cdot" style="background:${colorFor(h.label)}"></i>${esc(h.label)}</b><span>${esc(h.name||"")}</span></div></td>
+      <td>${pxCell}</td>
+      <td>${r.px && isFinite(r.px.chgPct) ? `<span class="chg ${cls(r.px.chgPct)}">${fmtPct(r.px.chgPct)}</span>` : "—"}</td>
+      <td><span class="num">${fmtNum(r.shares,0)}</span><span class="sub num">@ ${fmtMoney(r.avg,h.currency)}</span></td>
+      <td><span class="num">${fmtMoney(r.value,h.currency)}</span></td>
+      <td>${W[h.label]!=null ? `<span class="wt"><span class="num">${W[h.label].toFixed(1)}%</span><span class="wbar"><span style="width:${Math.min(100, W[h.label]*2.5)}%;background:${colorFor(h.label)}"></span></span></span>` : "—"}</td>
+      <td><span class="num ${cls(r.pnl)}">${r.pnl==null?"—":(r.pnl>0?"+":"")+fmtMoney(r.pnl,h.currency)}</span><span class="sub num ${cls(r.pnlPct)}">${fmtPct(r.pnlPct)}</span></td>
+      <td>${rng}</td>
+      <td>${street}</td>
+      <td>${sig ? pillFor(sig.action) : `<span class="pill none">${S.agentBusy?"…":"—"}</span>`}</td>
+    </tr>`;
+    if (open) html += `<tr class="detail"><td colspan="10">${renderDetail(r, sig, t)}</td></tr>`;
+    return html;
+  }).join("");
+  const cards = R.map(r => {
+    const h = r.h, open = S.open === h.id, sig = signalFor(h.label), t = h.rpId && S.tear[h.rpId];
+    return `<div class="pcard ${open?"open":""}" data-id="${esc(h.id)}" tabindex="0" role="button" aria-expanded="${open}">
+      <div class="pc-top"><div class="tk"><b><i class="cdot" style="background:${colorFor(h.label)}"></i>${esc(h.label)}</b><span>${esc(h.name||"")}</span></div>${sig ? pillFor(sig.action) : ""}</div>
+      <div class="pc-grid">
+        <div><span class="label">Last</span><span class="num">${r.px ? fmtMoney(r.px.price, h.currency) : "—"}</span>${r.px && isFinite(r.px.chgPct) ? `<span class="chg ${cls(r.px.chgPct)}">${fmtPct(r.px.chgPct)}</span>` : ""}</div>
+        <div><span class="label">Value</span><span class="num">${fmtMoney(r.value, h.currency)}</span><span class="sub num">${fmtNum(r.shares,0)} @ ${fmtMoney(r.avg,h.currency)}</span></div>
+        <div><span class="label">Unrealized</span><span class="num ${cls(r.pnl)}">${fmtPct(r.pnlPct)}</span><span class="sub num ${cls(r.pnl)}">${r.pnl==null?"":(r.pnl>0?"+":"")+fmtMoney(r.pnl,h.currency)}</span></div>
+      </div>
+      ${r.px ? `<span class="sub">${esc(r.px.src)} · ${esc(r.px.day)}</span>` : ""}
+    </div>${open ? `<div class="pc-detail">${renderDetail(r, sig, t)}</div>` : ""}`;
+  }).join("");
+  return `<div class="pf-cards">${cards}</div><div class="tablewrap pf-t"><table class="pf"><thead><tr><th>Position</th><th>Last</th><th>Day</th><th>Qty · avg</th><th>Value</th><th>Weight</th><th>Unrealized</th><th>Stop → target</th><th>Street target</th><th>Agent</th></tr></thead><tbody>${body}</tbody></table></div>
+  <p class="muted" style="margin:0;font-size:12px">Prices: Bigdata.com when it quotes the exact share class, then Alpha Vantage, then Twelve Data, plus an hourly backup feed (brapi.dev) written by a scheduled task, so every position always has a quote; the freshest source wins and each row shows its source and trading day. Quotes are delayed about 15 minutes. Street targets for dual‑listed companies may refer to the US ADR, shown with its own ticker.</p>`;
+}
+
+function renderDetail(r, sig, t){
+  const h = r.h;
+  const news = coNews(h).slice(0,4);
+  const ce = S.coErr[h.id];
+  const del = S.confirmDel === h.id
+    ? `<button class="btn sm danger" data-act="del-yes" data-id="${esc(h.id)}">Confirm remove</button><button class="btn sm ghost" data-act="del-no">Keep</button>`
+    : `<button class="btn sm ghost" data-act="del" data-id="${esc(h.id)}">Remove</button>`;
+  const reps = reportsFor(h.label);
+  return `<div class="detail-grid">
+    <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+      <div><h4>Your notes</h4>
+        <textarea class="notes" id="notes-${esc(h.id)}" placeholder="Your thesis, catalysts you're waiting for, what would make you sell…">${esc(h.research||"")}</textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn sm primary" data-act="save-notes" data-id="${esc(h.id)}">Save notes</button>
+          <button class="btn sm" data-act="edit" data-id="${esc(h.id)}">Edit position</button>
+          ${del}
+          <span class="muted" id="notes-msg-${esc(h.id)}" style="font-size:12px"></span>
+        </div>
+      </div>
+      ${sig ? `<div><h4>Agent on ${esc(h.label)}</h4><p style="margin:0 0 6px">${pillFor(sig.action)} <b>${esc(sig.headline)}</b></p>${sig.critique?`<p style="margin:0;color:var(--ink-2)">${esc(sig.critique)}</p>`:""}${sig.provocation?`<p style="margin:8px 0 0;font-style:italic">“${esc(sig.provocation)}”</p>`:""}<button class="btn sm ghost" data-goto="agent" style="margin-top:6px;padding-left:0">Full briefing →</button></div>` : ""}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+      <div><h4>Snapshot</h4><dl class="kv">
+        <dt>Symbol</dt><dd>${esc(h.symbol)} · ${esc(h.currency)}</dd>
+        <dt>Cost basis</dt><dd>${fmtMoney(r.cost,h.currency)}</dd>
+        ${r.px?`<dt>Price source</dt><dd>${esc(r.px.src)} · ${esc(r.px.day)}</dd>`:""}
+        ${t?.price_target?.value!=null?`<dt>Street range</dt><dd>${fmtNum(t.price_target.low)} – ${fmtNum(t.price_target.high)} ${esc(t.price_target.currency||"")} (${esc(t.ticker||"")})</dd>`:""}
+        ${t?.eps?.surprise!=null?`<dt>Last EPS surprise</dt><dd class="${cls(+t.eps.surprise)}">${fmtPct(+t.eps.surprise)}</dd>`:""}
+        <dt>Research on file</dt><dd>${reps.length} report${reps.length===1?"":"s"} · ${(S.calls[h.id]||[]).length} call/filing excerpts</dd>
+        ${S.quoteErr[h.symbol]?`<dt>Alpha Vantage</dt><dd style="white-space:normal">${esc(S.quoteErr[h.symbol].msg.slice(0,140))}</dd>`:""}
+        ${S.tdErr[h.symbol]?`<dt>Twelve Data</dt><dd style="white-space:normal">${esc(S.tdErr[h.symbol].msg.slice(0,140))}</dd>`:""}
+      </dl></div>
+      <div><h4>Latest on ${esc(h.name||h.label)}</h4>
+        ${news.length ? `<ul class="mini-news">${news.map(n=>`<li><a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.headline)}</a><span class="sub">${esc(n.source)} · ${esc(ago(n.t))}</span></li>`).join("")}</ul>`
+          : (S.co[h.id] || S.feed) ? `<span class="muted">No company news this week.</span>` : ce ? `<span class="muted">${esc(errCopy(ce, BD))}</span>` : `<span class="muted">Loading news…</span>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+function positionForm(){
+  const e = S.editing ? (S.holdings||[]).find(h=>h.id===S.editing) : null;
+  const v = (k, d="") => esc(e ? (e[k] ?? d) : d);
+  const ex = e ? (e.symbol.endsWith(".SAO") ? "B3" : "US") : "B3";
+  return `<form class="pos" id="posform" novalidate>
+    <div class="fld"><label class="label" for="f-ticker">Ticker</label><input id="f-ticker" required placeholder="PETR4" value="${v("label")}" autocomplete="off" ${e?"readonly":""}></div>
+    <div class="fld"><label class="label" for="f-ex">Market</label><select id="f-ex" ${e?"disabled":""}><option value="B3" ${ex==="B3"?"selected":""}>B3 · BRL</option><option value="US" ${ex==="US"?"selected":""}>US · USD</option></select></div>
+    <div class="fld half"><label class="label" for="f-name">Company</label><input id="f-name" required placeholder="Petrobras" value="${v("name")}" autocomplete="off"><span class="hint">Used for company news and transcripts.</span></div>
+    <div class="fld"><label class="label" for="f-shares">Quantity</label><input id="f-shares" inputmode="decimal" required placeholder="200" value="${v("shares")}"></div>
+    <div class="fld"><label class="label" for="f-avg">Average cost</label><input id="f-avg" inputmode="decimal" required placeholder="36.50" value="${v("avgCost")}"></div>
+    <div class="fld"><label class="label" for="f-target">Target price</label><input id="f-target" inputmode="decimal" placeholder="optional" value="${v("target")}"></div>
+    <div class="fld"><label class="label" for="f-stop">Stop price</label><input id="f-stop" inputmode="decimal" placeholder="optional" value="${v("stop")}"></div>
+    <div class="fld full"><label class="label" for="f-research">Your notes</label><textarea id="f-research" placeholder="Thesis, key drivers, what would change your mind. The agent argues with this.">${v("research")}</textarea></div>
+    <div class="form-actions"><button class="btn primary" type="submit" id="pos-submit">${e?"Save changes":"Add position"}</button><button class="btn ghost" type="button" id="cancel">Cancel</button><span class="muted" id="pos-msg" style="font-size:12.5px">${esc(S.formMsg)}</span></div>
+  </form>`;
+}
+
+/* ---------- render: news ---------- */
+function newsHead(){
+  const hs = S.holdings || [], f = S.newsFilter;
+  const chips = [["all","All"],["markets","Markets"], ...hs.map(h=>[h.label,h.label])]
+    .map(([k,l]) => `<button class="chip" data-nf="${esc(k)}" aria-pressed="${f===k}">${esc(l)}</button>`).join("");
+  const out = [ratesPanel(), `<div class="bar"><h2>News</h2><span class="sp"></span><span class="muted" style="font-size:12px">Bigdata.com · refreshes every 15 min</span></div><div class="chips">${chips}</div>`];
+  const err = (S.mktErr.global || S.mktErr.brazil) && !S.feed ? (S.mktErr.global || S.mktErr.brazil) : null;
+  if (S.feed && !(S.mkt.global||[]).length) out.push(`<p class="muted" style="margin:0;font-size:12px">Showing the cloud news feed from ${esc(ago(S.feed.updatedAt))}.</p>`);
+  if (err) out.push(`<div class="notice warn"><p>${esc(errCopy(err, BD))}</p>${needsAllow(err)?`<button class="btn sm primary" id="allow">Allow connectors</button>`:""}</div>`);
+  return out.join("");
+}
+function newsBody(){
+  const f = S.newsFilter;
+  const list = allNews().sort((a,b)=>(b.t||0)-(a.t||0)).filter(n => f==="all" ? true : f==="markets" ? (n.tag==="Markets"||n.tag==="Brazil") : n.tag===f);
+  const cited = new Set(Object.values(S.agent?.refs||{}).filter(r=>r.kind==="news").map(r=>r.id));
+  if (!list.length) {
+    const loading = !S.noRuntime && !S.mkt.global && !S.mktErr.global && !S.feed;
+    return `<div class="news">${loading ? `<div class="art"><div class="skel" style="width:30%"></div><div class="skel" style="width:85%"></div><div class="skel"></div></div><div class="art"><div class="skel" style="width:25%"></div><div class="skel" style="width:70%"></div></div>` : `<div class="art"><p>No news in this view yet.</p></div>`}</div>`;
+  }
+  return `<div class="news">${list.slice(0,90).map(n => `<article class="art" id="art-${esc(n.id)}">
+    <div class="meta"><span class="tag ${n.tag!=="Markets"&&n.tag!=="Brazil"?"mine":""}">${esc(n.tag)}</span><span>${esc(n.source)}</span><span>·</span><span>${esc(ago(n.t))}</span>${cited.has(n.id)?`<span class="tag mine">cited by agent</span>`:""}</div>
+    <h3>${n.url?`<a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.headline)}</a>`:esc(n.headline)}</h3>
+    ${n.text?`<p>${esc(n.text.slice(0,420))}</p>`:""}
+  </article>`).join("")}</div>`;
+}
+
+/* ---------- render: research ---------- */
+function researchHead(){
+  const hs = S.holdings || [], reps = S.reports || [];
+  const chips = [["all","All"], ["ALL","Portfolio & macro"], ...hs.map(h => [h.label, h.label])].map(([k,l]) => {
+    const n = k === "all" ? reps.length : reps.filter(r => (r.symbols||[]).includes(k)).length;
+    return `<button class="chip" data-rf="${esc(k)}" aria-pressed="${S.repFilter===k}">${esc(l)} <span class="muted">${n}</span></button>`; }).join("");
+  const p = S.pack;
+  return `<div class="bar"><h2>Research</h2><span class="sp"></span>
+    ${S.noStore ? "" : p.busy ? `<button class="btn sm" id="pack-stop">Stop</button>` : `<button class="btn" id="pack" ${mcp && hs.length ? "" : "disabled"}>Pull statements &amp; calls</button>`}
+    ${S.noStore ? "" : `<button class="btn primary" id="rep-add">${S.repOpen?"Close":"Add report"}</button>`}</div>
+  <p class="muted" style="margin:0;max-width:78ch"><b>Pull statements &amp; calls</b> fetches, for every position, the last four quarters of income statement, balance sheet and cash flow plus the last four earnings-call transcripts from Bigdata.com. Releases and broker reports (PDF) you add yourself. Running it again replaces the pulled files with fresh ones.</p>
+  ${p.busy ? `<div class="progress"><span class="spin"></span><span>${esc(p.msg)}</span></div>` : p.msg ? `<div class="notice"><p>${esc(p.msg)}</p></div>` : ""}
+  <div class="chips">${chips}</div>`;
+}
+function reportForm(){
+  const hs = S.holdings || [];
+  return `<form class="pos" id="repform" novalidate>
+    <div class="fld half"><label class="label" for="r-title">Title</label><input id="r-title" placeholder="Klabin 3Q26 review" autocomplete="off"></div>
+    <div class="fld"><label class="label" for="r-pub">Publisher</label><input id="r-pub" placeholder="BTG Pactual" autocomplete="off"></div>
+    <div class="fld"><label class="label" for="r-date">Date</label><input id="r-date" type="date"></div>
+    <div class="fld full"><span class="label">Covers</span><div class="checks">
+      <label><input type="checkbox" value="ALL" class="r-sym"> Whole portfolio / macro</label>
+      ${hs.map(h=>`<label><input type="checkbox" value="${esc(h.label)}" class="r-sym"> ${esc(h.label)}</label>`).join("")}
+    </div></div>
+    <div class="fld half"><label class="label" for="r-file">File (PDF, TXT or MD)</label><input id="r-file" type="file" accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown"><span class="hint">Text is extracted in your browser and saved privately to your account. Scanned PDFs without a text layer can't be read.</span></div>
+    <div class="fld half"><label class="label" for="r-text">…or paste the text</label><textarea id="r-text" placeholder="Paste the report or your own analysis"></textarea></div>
+    <div class="form-actions"><button class="btn primary" type="submit" id="rep-submit">Save report</button><button class="btn ghost" type="button" id="rep-cancel">Cancel</button><span class="muted" id="rep-msg" style="font-size:12.5px">${esc(S.repMsg)}</span></div>
+  </form>`;
+}
+function researchBody(){
+  const out = [];
+  const kindOrder = { release:0, dfs:1, call:2, letter:3, article:4 };
+  const reps = [...(S.reports||[])].filter(r => S.repFilter === "all" || (r.symbols||[]).includes(S.repFilter))
+    .sort((a,b) => String((a.symbols||[])[0]).localeCompare(String((b.symbols||[])[0])) || (kindOrder[a.kind]??2) - (kindOrder[b.kind]??2) || String(b.id).localeCompare(String(a.id)));
+  const kindTag = r => r.kind === "letter" ? `<span class="tag">Fund letter</span>` : r.kind === "article" ? `<span class="tag">Article</span>` : r.kind === "release" ? `<span class="tag">Release ${esc(r.period||"")}</span>` : r.kind === "dfs" ? `<span class="tag">Statements</span>` : r.kind === "call" ? `<span class="tag">Earnings call ${esc(r.period||"")}</span>` : `<span class="tag">Report</span>`;
+  out.push(`<div class="bar"><h2 style="font-size:15px">Library</h2><span class="muted" style="font-size:12px">${reps.length} file${reps.length===1?"":"s"}</span></div>`);
+  if (!reps.length) out.push(`<div class="empty"><h3>Nothing on file yet</h3><p>Pull statements and calls for all positions in one go, then add the releases and broker reports you get as PDFs. Link each upload to the positions it covers so the agent can hold your thesis up against it.</p>${S.noStore?"":`<button class="btn primary" id="rep-add2">Add a report</button>`}</div>`);
+  else out.push(`<div class="news">${reps.map(r => `<article class="art" id="rep-${esc(r.id)}">
+    <div class="meta">${(r.symbols||[]).map(s=>`<span class="tag mine">${esc(s==="ALL"?"Portfolio":s)}</span>`).join("")}${kindTag(r)}<span>${esc(r.publisher||"Own notes")}</span><span>·</span><span>${esc(r.date||isoDay(r.addedAt))}</span><span>·</span><span class="num">${(r.chars||0).toLocaleString("en-US")} chars</span></div>
+    <h3>${r.url?`<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.title)}</a>`:esc(r.title)}</h3>
+    ${S.repView===r.id ? `<pre class="doc">${esc(r.text)}</pre>` : `<p>${esc(String(r.text||"").replace(/\|/g," ").slice(0,360))}</p>`}
+    <div class="actions"><button class="btn sm" data-act="rep-view" data-id="${esc(r.id)}">${S.repView===r.id?"Collapse":"Read"}</button>${S.repDel===r.id?`<button class="btn sm danger" data-act="rep-del-yes" data-id="${esc(r.id)}">Confirm delete</button><button class="btn sm ghost" data-act="rep-del-no">Keep</button>`:`<button class="btn sm ghost" data-act="rep-del" data-id="${esc(r.id)}">Delete</button>`}</div>
+  </article>`).join("")}</div>`);
+
+  out.push(`<div class="bar"><h2 style="font-size:15px">Earnings calls &amp; filings</h2><span class="muted" style="font-size:12px">Bigdata.com · hourly</span></div>`);
+  const hs = S.holdings || [];
+  const items = [];
+  for (const h of hs) for (const c of (S.calls[h.id]||[])) items.push(c);
+  if (!items.length) out.push(`<div class="news"><div class="art"><p>${hs.length ? "Loading transcripts and filings…" : "Add positions to pull their earnings calls and filings."}</p></div></div>`);
+  else out.push(`<div class="news">${items.sort((a,b)=>(b.t||0)-(a.t||0)).map(n => `<article class="art" id="call-${esc(n.id)}">
+    <div class="meta"><span class="tag mine">${esc(n.tag)}</span><span>${esc(n.source)}</span><span>·</span><span>${esc(isoDay(n.t))}</span></div>
+    <h3>${n.url?`<a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.headline)}</a>`:esc(n.headline)}</h3><p>${esc(n.text.slice(0,420))}</p></article>`).join("")}</div>`);
+  return out.join("");
+}
+
+/* ---------- render: agent briefing ---------- */
+function refButtons(keys){
+  const a = S.agent; if (!a || !keys?.length) return "";
+  return `<div class="refs">Sources ${keys.map(k => { const r = a.refs?.[k]; return r ? `<button data-ref="${esc(k)}" title="${esc((r.source?r.source+": ":"")+r.title)}">${esc(k)}</button>` : ""; }).join("")}</div>`;
+}
+function agentHead(){
+  const a = S.agent, has = (S.holdings||[]).length;
+  const newer = a && S.lastData > (a.dataAsOf||0) + 60000;
+  const out = [`<div class="brief-head"><div class="row1"><h2>Desk briefing</h2><span class="sp" style="flex:1"></span>
+    ${S.agentBusy ? `<button class="btn sm" id="stop">Stop</button>` : `<button class="btn primary" id="run" ${(!sample||!S.sampleOK||!has)?"disabled":""}>${a?"Run new briefing":"Run briefing"}</button>`}</div>
+    <div class="muted" style="font-size:12.5px">${a ? `Last briefing ${esc(ago(a.ranAt))}${a.source==="cloud"?" by the daily cloud run":""}${newer?" · prices or news have changed since":""}` : "No briefing yet."} A fresh briefing is written in the cloud every weekday after the close, so it is ready on your phone without running anything. The agent reads market news, every company's news, earnings calls, filings and the reports you uploaded, then argues with your positions. A run takes one to three minutes.</div>
+    ${S.agentBusy ? `<div class="progress"><span class="spin"></span><span>${esc(S.progress)}</span></div>` : ""}
+    ${agentErrHtml()}
+  </div>`];
+  return out.join("");
+}
+function agentErrHtml(){
+  if (!S.agentErr) return "";
+  const c = S.agentErr.code;
+  const msg = c==="not_granted" ? "The agent needs your permission to use Claude on this page. Allow it from the artifact's Permissions menu, then run it again."
+    : c==="rate_limited" ? "Claude usage limit reached for now. Try again later."
+    : c==="invalid_json" ? "The briefing came back unreadable. Run it again."
+    : c==="prompt_too_large" ? "Too much material for one briefing. Delete older reports or shorten notes, then run again."
+    : c==="sampling_disabled" ? "Claude isn't available to this page for your account."
+    : `The briefing failed (${c||"error"}). Run it again.`;
+  return `<div class="notice err"><p>${esc(msg)}</p></div>`;
+}
+function deepPanel(label){
+  const d = S.deep[label];
+  if (!d) return "";
+  const sc = d.scenarios || [];
+  const tone = n => /bear/i.test(n) ? "bear" : /bull/i.test(n) ? "bull" : "base";
+  const refBtns = Object.keys(d.refs||{}).length ? `<div class="refs">Sources ${Object.entries(d.refs).map(([k,r]) => `<button data-dref="${esc(label)}|${esc(k)}" title="${esc((r.source?r.source+": ":"")+r.title)}">${esc(k)}</button>`).join("")}</div>` : "";
+  const list = (title, arr, cl="") => arr && arr.length ? `<div><h4>${title}</h4><ul class="bul ${cl}">${arr.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>` : "";
+  return `<div class="deep">
+    <div class="top"><span class="label">Deep dive · ${esc(ago(d.ranAt))}</span>${pillFor(d.verdict)}<span class="conf">${esc(d.confidence)} confidence · ${d.sources?.releases||0} releases, ${d.sources?.dfs?"statements":"no statements"}, ${d.sources?.calls||0} calls, ${d.sources?.reports||0} reports</span></div>
+    <p style="color:var(--ink)">${esc(d.summary)}</p>
+    <div class="deep-cols">${list("Financials, last 4 quarters", d.financials)}${list("Management said vs did", d.management)}</div>
+    <div class="deep-cols">${list("Strengths", d.strengths, "green")}${list("Red flags", d.redFlags, "red")}</div>
+    ${d.managerViews ? `<div><h4>Fund managers &amp; articles</h4><p>${esc(d.managerViews)}</p></div>` : ""}
+    <div class="scen">${sc.map(s => `<div class="sc ${tone(s.name)}">
+      <div class="sc-top"><b>${esc(s.name)}</b><span class="num">${esc(s.probability)}%</span></div>
+      <div class="pbar"><span style="width:${Math.max(0,Math.min(100,+s.probability||0))}%"></span></div>
+      <p>${esc(s.narrative)}</p>
+      ${s.valueView?`<p class="vv">${esc(s.valueView)}</p>`:""}
+      ${s.drivers?.length?`<h4>Drivers</h4><ul class="bul">${s.drivers.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
+      ${s.signposts?.length?`<h4>Signposts</h4><ul class="bul">${s.signposts.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
+    </div>`).join("")}</div>
+    ${d.critique?`<p class="crit">${esc(d.critique)}</p>`:""}
+    ${(d.provocations||[]).length?`<ul class="provs dark">${d.provocations.map(p=>`<li>${esc(p)}</li>`).join("")}</ul>`:""}
+    ${refBtns}
+  </div>`;
+}
+function latestRun(){ return [...S.history].sort((a,b) => b.ranAt - a.ranAt)[0]; }
+function feedbackControls(label){
+  const run = latestRun(); if (!run || !histCol) return "";
+  const f = run.feedback?.[label];
+  if (S.fbOpen === label) return `<div class="fb"><textarea class="notes" id="fb-note-${esc(label)}" placeholder="Why? The agent reads this next time.">${esc(f?.note||"")}</textarea>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" data-fb="${esc(label)}|agree">I agree</button><button class="btn sm" data-fb="${esc(label)}|disagree">I disagree</button><button class="btn sm ghost" data-fbclose="1">Cancel</button></div></div>`;
+  return `<div class="fbrow">${f ? `<span class="tag ${f.v==="agree"?"hit":"miss"}">You ${f.v==="agree"?"agreed":"disagreed"}</span>${f.note?`<span class="muted" style="font-size:12px">“${esc(String(f.note).slice(0,90))}”</span>`:""}` : ""}<button class="btn sm ghost" data-fbopen="${esc(label)}">${f ? "Change feedback" : "Agree or push back"}</button></div>`;
+}
+function deepControls(label){
+  const busy = S.deepBusy === label, has = !!S.deep[label], err = S.deepErr[label];
+  if (busy) return `<div class="progress"><span class="spin"></span><span>${esc(S.deepProgress)}</span><button class="btn sm ghost" id="deep-stop">Stop</button></div>`;
+  const queued = S.deepQueue.includes(label);
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <button class="btn sm ${has?"":"primary"}" data-deep="${esc(label)}" ${(!sample||!S.sampleOK||S.deepBusy)?"disabled":""}>${has?"Redo deep dive":"Deep dive & scenarios"}</button>
+    ${has?`<button class="btn sm ghost" data-deepopen="${esc(label)}">${S.deepOpen===label?"Hide deep dive":"Show deep dive"}</button>`:""}
+    ${queued?`<span class="muted" style="font-size:12px">queued</span>`:""}
+    ${err?`<span class="down" style="font-size:12px">Failed (${esc(err.code||"error")}). Try again.</span>`:""}</div>`;
+}
+function agentBody(){
+  const a = S.agent, hs = S.holdings || [];
+  if (!hs.length) return `<div class="empty"><h3>Nothing to argue about yet</h3><p>Add your positions first.</p></div>`;
+  const out = [ratesPanel(), learnedPanel()].filter(Boolean);
+  if (!a) out.push(`<div class="empty"><h3>Run your first briefing</h3><p>You'll get a market read, a blunt critique of the portfolio, questions you should be able to answer, and a call on every position with the evidence behind it. For the full story on one company, run its deep dive: four quarters of statements and calls, read against your notes, with bear, base and bull scenarios.</p></div>`);
+  else {
+    const risk = String(a.riskLevel||"").toLowerCase();
+    out.push(`<section class="brief-head"><div class="row1"><span class="label">Market read</span>${risk?`<span class="pill ${risk==="high"?"sell":risk==="elevated"?"trim":"hold"}">Risk ${esc(risk)}</span>`:""}</div><p style="margin:0;max-width:80ch">${esc(a.marketView)}</p></section>`);
+    if (a.ratesView) out.push(`<section class="brief-head"><span class="label">Rates read</span><p style="margin:0;max-width:85ch">${esc(a.ratesView)}</p></section>`);
+    if (a.strengths) out.push(`<section class="brief-head good"><span class="label">What's working</span><p style="margin:0;max-width:85ch">${esc(a.strengths)}</p></section>`);
+    if (a.portfolioCritique) out.push(`<section class="truth"><span class="label">What you're not hearing</span><p>${esc(a.portfolioCritique)}</p>${(a.provocations||[]).length ? `<ul class="provs">${a.provocations.map(p=>`<li>${esc(p)}</li>`).join("")}</ul>` : ""}</section>`);
+  }
+  const order = { "SELL":0, "TRIM":1, "BUY MORE":2, "WATCH":3, "HOLD":4 };
+  const items = hs.map(h => ({ h, s:signalFor(h.label) })).sort((x,y) => (order[String(x.s?.action||"").toUpperCase()]??5) - (order[String(y.s?.action||"").toUpperCase()]??5));
+  out.push(`<div class="bar"><h2 style="font-size:16px">Positions</h2><span class="sp"></span>${S.deepQueue.length ? `<span class="muted" style="font-size:12px">Deep dives: ${S.deepQueue.length} left</span><button class="btn sm" id="deep-all-stop">Stop all</button>` : `<button class="btn sm" id="deep-all" ${(!sample||!S.sampleOK||S.deepBusy)?"disabled":""}>Deep dive every position</button>`}</div>`);
+  out.push(`<div class="cards">${items.map(({h, s}) => {
+    const rc = String(s?.researchCheck||"").toLowerCase();
+    const open = S.deepOpen === h.label && S.deep[h.label];
+    return `<article class="card ${open?"wide":""}" id="card-${esc(h.label)}">
+      <div class="top"><b>${esc(h.label)}</b>${s?pillFor(s.action):`<span class="pill none">no briefing</span>`}${S.deep[h.label]?`<span class="tag">deep: ${esc(S.deep[h.label].verdict)}</span>`:""}<span class="conf">${s?esc(s.confidence)+" confidence":esc(h.name||"")}</span></div>
+      ${s?`<h3>${esc(s.headline)}</h3>`:""}
+      ${(s?.bullCase || s?.bearCase) ? `<div class="sides">${s.bullCase?`<div class="side bull"><h4>Bull case</h4><p>${esc(s.bullCase)}</p></div>`:""}${s.bearCase?`<div class="side bear"><h4>Bear case</h4><p>${esc(s.bearCase)}</p></div>`:""}</div>` : ""}
+      ${s?.managerViews?`<div><h4>Fund managers &amp; articles</h4><p>${esc(s.managerViews)}</p></div>`:""}
+      ${s?.newsTake?`<div><h4>News</h4><p>${esc(s.newsTake)}</p></div>`:""}
+      ${s?.researchTake?`<div><h4>Research &amp; calls ${rc?`<span class="rc ${rc==="supports"?"supports":rc==="challenges"?"challenges":""}">· your thesis: ${esc(rc)}</span>`:""}</h4><p>${esc(s.researchTake)}</p></div>`:""}
+      ${s?.rationale && !s.newsTake?`<p>${esc(s.rationale)}</p>`:""}
+      ${s?.critique?`<p class="crit">${esc(s.critique)}</p>`:""}
+      ${s?.provocation?`<p class="prov">“${esc(s.provocation)}”</p>`:""}
+      ${s?.watch?`<span class="watch">Watch: ${esc(s.watch)}</span>`:""}
+      ${s?refButtons(s.refs):""}
+      ${s?feedbackControls(h.label):""}
+      ${deepControls(h.label)}
+      ${open?deepPanel(h.label):""}
+    </article>`; }).join("")}</div>
+  <p class="muted" style="margin:0;font-size:12px">Built from the prices, news, statements, earnings calls and reports on this page. Not investment advice; the decision and the order are yours.</p>`);
+  return out.join("");
+}
+
+/* ---------- render: rail ---------- */
+function renderRail(){
+  const el = $("#agent"), a = S.agent, has = (S.holdings||[]).length;
+  let body = "";
+  if (S.agentBusy) body += `<div class="ag-block"><div class="progress"><span class="spin"></span><span>${esc(S.progress)}</span></div></div>`;
+  if (S.agentErr) body += `<div class="ag-block">${agentErrHtml()}</div>`;
+  if (!has) body += `<div class="ag-block"><p>Add positions and the agent will read the news, earnings calls and your research, then challenge each position.</p></div>`;
+  if (a && has) {
+    if (a.provocations?.length) body += `<div class="ag-block"><span class="label">Answer this first</span><p class="rail-prov">${esc(a.provocations[0])}</p></div>`;
+    const order = { "SELL":0, "TRIM":1, "BUY MORE":2, "WATCH":3, "HOLD":4 };
+    body += [...(a.signals||[])].sort((x,y)=>(order[String(x.action).toUpperCase()]??5)-(order[String(y.action).toUpperCase()]??5))
+      .map(s => `<div class="sig" data-card="${esc(s.symbol)}" tabindex="0"><div class="sig-top"><b>${esc(s.symbol)}</b>${pillFor(s.action)}</div><p>${esc(s.headline)}</p></div>`).join("");
+  } else if (has && !S.agentBusy) body += `<div class="ag-block"><p>No briefing yet.</p></div>`;
+  el.innerHTML = `<div class="ag-head"><div class="ag-title"><h2>Desk agent</h2><span class="sp"></span>
+    <button class="btn sm" data-goto="agent">Briefing</button>
+    <button class="btn sm primary" id="run2" ${(!sample||!S.sampleOK||!has||S.agentBusy)?"disabled":""}>Run</button></div>
+    <div class="ag-sub">${a && a.ranAt ? `Last run ${esc(ago(a.ranAt))}` : "Not run yet"}</div></div>
+    ${body}<div class="ag-foot">Not investment advice; the call is yours.</div>`;
+}
+
+/* ---------- render ---------- */
+function setHTML(el, html){ if (el.__h !== html) { el.innerHTML = html; el.__h = html; } }
+function render(){
+  renderStatus(); renderTape();
+  const typing = document.activeElement && document.activeElement.closest?.("#c-body") && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+  const head = $("#c-head"), form = $("#c-form"), body = $("#c-body");
+  let h = "", fKey = "", fHtml = "", b = "";
+  if (S.tab === "portfolio") { h = portfolioHead(); if (S.formOpen) { fKey = "pos:"+(S.editing||"new"); fHtml = positionForm(); } b = portfolioBody(); }
+  else if (S.tab === "news") { h = newsHead(); b = newsBody(); }
+  else if (S.tab === "research") { h = researchHead(); if (S.repOpen) { fKey = "rep:"+(S.holdings||[]).map(x=>x.label).join(","); fHtml = reportForm(); } b = researchBody(); }
+  else { h = agentHead(); b = agentBody(); }
+  setHTML(head, h);
+  if (form.dataset.key !== fKey) { form.innerHTML = fHtml; form.dataset.key = fKey; }
+  if (!typing) setHTML(body, b);
+  $("#main").classList.toggle("wide", S.tab === "agent");
+  renderRail();
+  document.querySelectorAll("nav.tabs button").forEach(btn => {
+    btn.setAttribute("aria-selected", String(btn.dataset.tab === S.tab));
+    if (btn.dataset.tab === "research") btn.innerHTML = `Research${(S.reports||[]).length?`<span class="badge">${S.reports.length}</span>`:""}`;
+  });
+}
+
+/* ---------- actions: positions ---------- */
+async function submitPosition(ev){
+  ev.preventDefault();
+  if (!holdCol) return;
+  const msg = $("#pos-msg"), btn = $("#pos-submit");
+  const g = id => document.getElementById(id).value.trim();
+  const num = s => { const n = parseFloat(String(s).replace(/\s/g,"").replace(",", ".")); return isFinite(n) ? n : null; };
+  const e = S.editing ? (S.holdings||[]).find(h=>h.id===S.editing) : null;
+  const ticker = (e ? e.label : g("f-ticker")).toUpperCase().replace(/\.SAO?$/,"");
+  const ex = e ? (e.symbol.endsWith(".SAO") ? "B3" : "US") : g("f-ex");
+  const name = g("f-name"), shares = num(g("f-shares")), avg = num(g("f-avg"));
+  const target = num(g("f-target")), stop = num(g("f-stop")), research = $("#f-research").value;
+  if (!/^[A-Z0-9.\-]{1,12}$/.test(ticker) || !name || shares==null || shares<=0 || avg==null || avg<=0) { msg.textContent = "Fill in ticker, company, a quantity above zero and an average cost above zero."; return; }
+  if (!e && (S.holdings||[]).some(h => h.label === ticker)) { msg.textContent = `${ticker} is already in your positions. Use Edit on its row.`; return; }
+  btn.disabled = true; msg.textContent = "Looking up the company…";
+  const ent = (e && e.rpId) ? { rpId:e.rpId } : await resolveEntity(name, ticker, ex);
+  const doc = { label:ticker, symbol: ex==="B3" ? ticker+".SAO" : ticker, currency: ex==="B3" ? "BRL" : "USD",
+    name, shares, avgCost:avg, target, stop, research, rpId: ent?.rpId || null, createdAt: e?.createdAt || Date.now(), updatedAt: Date.now() };
+  try {
+    await holdCol.doc(e ? e.id : ticker.replace(/[^A-Z0-9_-]/g,"_")).set(doc);
+    S.formOpen = false; S.editing = null; S.open = e ? e.id : null; render();
+  } catch (err) { msg.textContent = err?.code === "quota_exceeded" ? "Storage is full. Remove something first." : `Couldn't save (${err?.code||"error"}). Try again.`; btn.disabled = false; }
+}
+
+/* ---------- actions: reports ---------- */
+let pdfReady = null;
+function loadPdfJs(){
+  if (pdfReady) return pdfReady;
+  const add = src => new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("load")); document.head.appendChild(s); });
+  pdfReady = add("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js")
+    .then(() => add("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"))
+    .then(() => window.pdfjsLib)
+    .catch(e => { pdfReady = null; throw e; });
+  return pdfReady;
+}
+async function extractPdf(file, onPage){
+  const lib = await loadPdfJs();
+  const buf = await file.arrayBuffer();
+  const pdf = await lib.getDocument({ data: new Uint8Array(buf), isEvalSupported:false }).promise;
+  const parts = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const tc = await page.getTextContent();
+    parts.push(tc.items.map(it => it.str + (it.hasEOL ? "\n" : " ")).join(""));
+    onPage && onPage(i, pdf.numPages);
+  }
+  return parts.join("\n\n").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+async function submitReport(ev){
+  ev.preventDefault();
+  if (!repCol) return;
+  const msg = $("#rep-msg"), btn = $("#rep-submit");
+  const file = $("#r-file").files?.[0];
+  let text = $("#r-text").value.trim();
+  const symbols = [...document.querySelectorAll(".r-sym:checked")].map(x => x.value);
+  let title = $("#r-title").value.trim();
+  if (!file && !text) { msg.textContent = "Choose a file or paste the text."; return; }
+  if (!symbols.length) { msg.textContent = "Tick at least one position, or Whole portfolio."; return; }
+  btn.disabled = true;
+  try {
+    if (file) {
+      if (/\.pdf$/i.test(file.name) || file.type === "application/pdf") {
+        msg.textContent = "Reading the PDF…";
+        text = await extractPdf(file, (i, n) => { msg.textContent = `Reading page ${i} of ${n}…`; });
+      } else text = await file.text();
+      if (!title) title = file.name.replace(/\.[^.]+$/, "");
+    }
+    if (!text || text.length < 80) { msg.textContent = "No readable text found. If it's a scanned PDF, paste the text instead."; btn.disabled = false; return; }
+    const MAX = 120000;
+    const doc = { title: title || "Untitled report", publisher: $("#r-pub").value.trim(), date: $("#r-date").value || "",
+      symbols, text: text.slice(0, MAX), chars: text.length, truncated: text.length > MAX, addedAt: Date.now() };
+    msg.textContent = "Saving…";
+    await repCol.add(doc);
+    S.repOpen = false; S.repMsg = ""; render();
+  } catch (e) {
+    msg.textContent = e?.code === "quota_exceeded" ? "Storage is full. Delete an older report first."
+      : e?.message === "load" ? "The PDF reader couldn't load. Paste the text instead."
+      : `Couldn't save the report (${e?.code || e?.message || "error"}).`;
+    btn.disabled = false;
+  }
+}
+
+/* ---------- events ---------- */
+function gotoRef(key){ const r = S.agent?.refs?.[key]; if (r) gotoRefObj(r); }
+function gotoRefObj(r){
+  const flash = id => { const el = document.getElementById(id); if (el) { el.classList.remove("ref"); void el.offsetWidth; el.classList.add("ref"); el.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block:"center" }); return true; } return false; };
+  if (r.kind === "news") { S.tab = "news"; S.newsFilter = "all"; render(); if (!flash("art-"+r.id) && r.url) window.open(r.url, "_blank", "noopener"); }
+  else if (r.kind === "call") { S.tab = "research"; render(); if (!flash("call-"+r.id) && r.url) window.open(r.url, "_blank", "noopener"); }
+  else { S.tab = "research"; S.repFilter = "all"; S.repView = r.id; render(); flash("rep-"+r.id); }
+}
+document.addEventListener("click", async ev => {
+  const t = ev.target.closest("button, tr.row, .pcard, .sig");
+  if (!t) return;
+  if (t.matches("nav.tabs button")) { S.tab = t.dataset.tab; render(); window.scrollTo({top:0}); return; }
+  if (t.dataset.goto) { S.tab = t.dataset.goto; render(); window.scrollTo({top:0}); return; }
+  if (t.matches(".sig")) { S.tab = "agent"; render(); document.getElementById("card-"+t.dataset.card)?.scrollIntoView({block:"start"}); return; }
+  if (t.id === "refresh") { t.disabled = true; try { await mcp?.invalidate(); } catch {} setTimeout(render, 1500); return; }
+  if (t.id === "add" || t.id === "add2") { S.formOpen = !(S.formOpen && !S.editing); S.editing = null; S.formMsg=""; render(); setTimeout(()=>$("#f-ticker")?.focus(), 0); return; }
+  if (t.id === "cancel") { S.formOpen = false; S.editing = null; render(); return; }
+  if (t.id === "rep-add" || t.id === "rep-add2") { S.repOpen = !S.repOpen; S.repMsg = ""; if (t.id === "rep-add2") S.repOpen = true; render(); setTimeout(()=>$("#r-title")?.focus(), 0); return; }
+  if (t.id === "rep-cancel") { S.repOpen = false; render(); return; }
+  if (t.id === "pack") { buildPack(); return; }
+  if (t.id === "pack-stop") { if (packCtl) packCtl.stop = true; S.pack.msg = "Stopping after the current step…"; render(); return; }
+  if (t.dataset.rf) { S.repFilter = t.dataset.rf; render(); return; }
+  if (t.dataset.deep) { deepDive(t.dataset.deep); return; }
+  if (t.dataset.deepopen) { S.deepOpen = S.deepOpen === t.dataset.deepopen ? null : t.dataset.deepopen; render(); return; }
+  if (t.id === "deep-stop") { deepCtl?.abort(); return; }
+  if (t.id === "deep-all") { deepDiveAll(); return; }
+  if (t.id === "deep-all-stop") { S.deepQueue = S.deepBusy ? [S.deepBusy] : []; deepCtl?.abort(); render(); return; }
+  if (t.dataset.fbopen) { S.fbOpen = t.dataset.fbopen; render(); setTimeout(() => document.getElementById("fb-note-"+t.dataset.fbopen)?.focus(), 0); return; }
+  if (t.dataset.fbclose) { S.fbOpen = null; render(); return; }
+  if (t.dataset.fb) {
+    const [lab, v] = t.dataset.fb.split("|"); const run = latestRun(); if (!run) return;
+    const note = (document.getElementById("fb-note-"+lab)?.value || "").slice(0, 600);
+    t.disabled = true;
+    try { await histCol.doc(String(run.ranAt)).update({ feedback:{ [lab]:{ v, note, at:Date.now() } } }); S.fbOpen = null; } catch {}
+    render(); return;
+  }
+  if (t.dataset.forget != null && S.memory) {
+    const lessons = (S.memory.lessons||[]).filter((_, i) => i !== +t.dataset.forget);
+    try { await memRef.set({ ...S.memory, lessons, updatedAt:Date.now() }); } catch {}
+    return;
+  }
+  if (t.dataset.dref) { const [lab, k] = t.dataset.dref.split("|"); const r = S.deep[lab]?.refs?.[k]; if (r) gotoRefObj(r); return; }
+  if (t.id === "run" || t.id === "run2") { if (t.id === "run2") S.tab = "agent"; runAgent(); return; }
+  if (t.id === "stop") { agentCtl?.abort(); return; }
+  if (t.id === "allow") {
+    try { await perms?.request(["mcp:"+AV, "mcp:"+BD, "mcp:"+TD]); } catch {}
+    try { await mcp?.callTool(BD, "bigdata_search", { request: MKT.global }); } catch {}
+    try { await mcp?.invalidate(); } catch {}
+    render(); return;
+  }
+  if (t.dataset.nf) { S.newsFilter = t.dataset.nf; render(); return; }
+  if (t.dataset.ref) { gotoRef(t.dataset.ref); return; }
+  const act = t.dataset.act;
+  if (act === "save-notes") {
+    const id = t.dataset.id, ta = document.getElementById("notes-"+id), msg = document.getElementById("notes-msg-"+id);
+    t.disabled = true; if (msg) msg.textContent = "Saving…";
+    try { await holdCol.doc(id).update({ research: ta.value, updatedAt: Date.now() }); if (msg) msg.textContent = "Saved. Run a new briefing to use them."; }
+    catch (e) { if (msg) msg.textContent = `Couldn't save (${e?.code||"error"}).`; }
+    t.disabled = false; return;
+  }
+  if (act === "edit") { S.editing = t.dataset.id; S.formOpen = true; render(); window.scrollTo({top:0, behavior:"smooth"}); return; }
+  if (act === "del") { S.confirmDel = t.dataset.id; render(); return; }
+  if (act === "del-no") { S.confirmDel = null; render(); return; }
+  if (act === "del-yes") { try { await holdCol.doc(t.dataset.id).delete(); } catch {} S.confirmDel = null; S.open = null; render(); return; }
+  if (act === "rep-view") { S.repView = S.repView === t.dataset.id ? null : t.dataset.id; render(); return; }
+  if (act === "rep-del") { S.repDel = t.dataset.id; render(); return; }
+  if (act === "rep-del-no") { S.repDel = null; render(); return; }
+  if (act === "rep-del-yes") { try { await repCol.doc(t.dataset.id).delete(); } catch {} S.repDel = null; render(); return; }
+  if (t.matches("tr.row, .pcard")) { const id = t.dataset.id; S.open = S.open === id ? null : id; S.confirmDel = null; render(); }
+});
+document.addEventListener("keydown", ev => {
+  if ((ev.key === "Enter" || ev.key === " ") && ev.target.matches?.("tr.row, .pcard, .sig")) { ev.preventDefault(); ev.target.click(); }
+});
+document.addEventListener("submit", ev => {
+  if (ev.target.id === "posform") submitPosition(ev);
+  if (ev.target.id === "repform") submitReport(ev);
+});
+setInterval(renderStatus, 30000);
+
+/* ---------- boot ---------- */
+render();
+(async () => {
+  if (!window.claude || typeof window.claude.use !== "function") { S.noRuntime = true; S.holdings = []; render(); return; }
+  const use = n => window.claude.use(n).catch(() => null);
+  const user = await use("user");
+  [db, mcp, sample, perms] = await Promise.all([use("db"), use("mcp"), use("sample"), use("permissions")]);
+  S.uid = user ? await user.id() : null;
+  if (!db || !S.uid) { S.noStore = true; S.holdings = []; render(); }
+  else {
+    const desk = db.doc(`data/users/${S.uid}/desk`);
+    holdCol = desk.collection("holdings");
+    repCol = desk.collection("reports");
+    deepCol = desk.collection("deep");
+    histCol = desk.collection("history");
+    memRef = db.doc(`data/users/${S.uid}/memory`);
+    agentRef = db.doc(`data/users/${S.uid}/agent`);
+    const timer = setTimeout(() => { if (S.holdings === null) { S.holdErr = { code:"timeout" }; render(); } }, 10000);
+    holdCol.onSnapshot(snap => {
+      if (!snap.metadata.fromCache) { clearTimeout(timer); S.holdErr = null; }
+      S.holdings = snap.docs.map(d => ({ id:d.id, ...d.data() })).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+      syncWatches(); render();
+    }, e => { clearTimeout(timer); S.holdErr = e; S.holdings = S.holdings || []; render(); });
+    repCol.onSnapshot(snap => { S.reports = snap.docs.map(d => ({ id:d.id, ...d.data() })); render(); }, () => {});
+    agentRef.onSnapshot(snap => { if (snap.exists) { S.agent = snap.data(); render(); } }, () => {});
+    histCol.onSnapshot(snap => { S.history = snap.docs.map(d => d.data()).filter(x => x && x.ranAt).sort((a,b) => b.ranAt - a.ranAt); render(); }, () => {});
+    memRef.onSnapshot(snap => { S.memory = snap.exists ? snap.data() : null; render(); }, () => {});
+    db.doc(`data/users/${S.uid}/quotes`).onSnapshot(snap => { const d = snap.exists ? snap.data() : null; S.backup = d?.quotes || {}; S.backupAt = d?.updatedAt || 0; if (S.backupAt) S.lastData = Math.max(S.lastData, S.backupAt); render(); }, () => {});
+    db.doc(`data/users/${S.uid}/newsfeed`).onSnapshot(snap => { S.feed = snap.exists ? snap.data() : null; if (S.feed?.updatedAt) S.lastData = Math.max(S.lastData, S.feed.updatedAt); render(); }, () => {});
+    db.doc(`data/users/${S.uid}/macro`).onSnapshot(snap => { S.macro = snap.exists ? snap.data() : null; render(); }, () => {});
+    deepCol.onSnapshot(snap => { const m = {}; for (const d of snap.docs) { const x = d.data(); if (x && x.symbol) m[x.symbol] = x; } S.deep = m; render(); }, () => {});
+  }
+  syncWatches(); render();
+  if (perms && mcp) {
+    try { await perms.request(["mcp:"+AV, "mcp:"+BD, "mcp:"+TD]); } catch {}
+    try { await mcp.invalidate(); } catch {}
+  }
+})();
+};
+</script>
+<script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});</script></body></html>

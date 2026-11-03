@@ -1,0 +1,94 @@
+<style>
+#gate{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:#0e1a2b;color:#e9eef6;font-family:"IBM Plex Sans",system-ui,sans-serif;padding:24px}
+#gate form{width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px}
+#gate h1{margin:0;font-family:"IBM Plex Sans Condensed","Arial Narrow",sans-serif;font-size:28px}
+#gate h1 i{font-style:normal;color:#f0a33a}
+#gate p{margin:0;color:#8fa1b8;font-size:14px;line-height:1.45}
+#gate input[type=password]{font:16px "IBM Plex Mono",monospace;padding:12px 14px;border-radius:8px;border:1px solid #2a3b55;background:#16263d;color:#e9eef6}
+#gate label{display:flex;gap:8px;align-items:center;color:#8fa1b8;font-size:13px}
+#gate button{font:600 15px system-ui;padding:12px;border-radius:8px;border:0;background:#f0a33a;color:#1a1206;cursor:pointer}
+#gate .err{color:#ff7a6e;min-height:1.2em}
+.ro #add,.ro #add2,.ro #rep-add,.ro #rep-add2,.ro #pack,.ro #pack-stop,.ro #run,.ro #run2,.ro #stop,.ro #refresh,.ro #allow,.ro #deep-all,.ro [data-deep],.ro [data-act="save-notes"],.ro [data-act="edit"],.ro [data-act="del"],.ro [data-act="rep-del"],.ro [data-fbopen],.ro [data-forget]{display:none!important}
+.ro textarea.notes{pointer-events:none;opacity:.85}
+#ro-note{font-size:12px;color:#8fa1b8;padding:6px 16px;background:#0e1a2b;text-align:center}
+</style>
+<div id="gate"><form id="gate-form" autocomplete="on">
+  <h1>Market<i>·</i>Desk</h1>
+  <p>Enter your passphrase to unlock your portfolio. The data is encrypted; only this passphrase opens it.</p>
+  <input type="password" id="gate-pass" autocomplete="current-password" placeholder="Passphrase" required>
+  <label><input type="checkbox" id="gate-keep" checked> Remember on this device</label>
+  <button type="submit">Unlock</button>
+  <div class="err" id="gate-err" role="alert"></div>
+</form></div>
+<script>
+(() => {
+  const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  async function decrypt(pass) {
+    const r = await fetch("data.enc.json?t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) throw new Error("load");
+    const box = await r.json();
+    const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
+    const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt: b64(box.salt), iterations: 250000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64(box.iv) }, key, b64(box.ct));
+    return JSON.parse(new TextDecoder().decode(pt));
+  }
+  // Read-only stand-in for the artifact's database, served from the snapshot.
+  function makeDb(snap) {
+    const colls = { holdings: snap.holdings || [], reports: snap.reports || [], deep: snap.deep || [], history: snap.history || [] };
+    const docs = snap.docs || {};
+    const ro = () => Promise.reject({ code: "read_only", message: "Read-only copy" });
+    const meta = { fromCache: false, hasPendingWrites: false };
+    const docSnap = (id, d) => ({ id, exists: !!d, data: () => d || undefined, metadata: meta });
+    function ref(path) {
+      const last = path.split("/").pop();
+      return {
+        path, id: last,
+        collection: c => ref(path + "/" + c),
+        doc: id => ref(path + "/" + (id || "x")),
+        add: ro, set: ro, update: ro, delete: ro, acquire: async () => ({ acquired: false }),
+        where() { return this; }, orderBy() { return this; }, limit() { return this; },
+        get: async () => colls[last] ? { docs: colls[last].map(d => docSnap(d.id, d)), size: colls[last].length, empty: !colls[last].length, metadata: meta, docChanges: () => [] } : docSnap(last, docs[last]),
+        onSnapshot(next) {
+          setTimeout(() => {
+            if (colls[last]) { const ds = colls[last].map(d => docSnap(d.id, d)); next({ docs: ds, size: ds.length, empty: !ds.length, metadata: meta, docChanges: () => [] }); }
+            else next(docSnap(last, docs[last]));
+          }, 0);
+          return () => {};
+        }
+      };
+    }
+    return { doc: ref, collection: ref };
+  }
+  function start(snap) {
+    document.documentElement.classList.add("ro");
+    const db = makeDb(snap);
+    const user = { id: async () => "me", isOwner: async () => true, canEdit: async () => false, can: async () => false };
+    window.claude = { use: async n => n === "db" ? db : n === "user" ? user : null };
+    document.getElementById("gate").remove();
+    const note = document.createElement("div"); note.id = "ro-note";
+    note.textContent = `Read-only copy · data from ${new Date(snap.builtAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })} · refreshes hourly`;
+    document.body.appendChild(note);
+    window.__startDesk();
+  }
+  async function unlock(pass, keep) {
+    const err = document.getElementById("gate-err");
+    err.textContent = "Unlocking…";
+    try {
+      const snap = await decrypt(pass);
+      try { keep ? localStorage.setItem("desk-pass", pass) : localStorage.removeItem("desk-pass"); } catch {}
+      start(snap);
+    } catch (e) {
+      try { localStorage.removeItem("desk-pass"); } catch {}
+      err.textContent = e && e.message === "load" ? "Couldn't load the data. Check your connection and try again." : "Wrong passphrase.";
+    }
+  }
+  document.getElementById("gate-form").addEventListener("submit", ev => {
+    ev.preventDefault();
+    unlock(document.getElementById("gate-pass").value, document.getElementById("gate-keep").checked);
+  });
+  window.addEventListener("DOMContentLoaded", () => {
+    let saved = null; try { saved = localStorage.getItem("desk-pass"); } catch {}
+    if (saved) unlock(saved, true);
+  });
+})();
+</script>
