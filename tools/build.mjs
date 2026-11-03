@@ -37,6 +37,13 @@ const b64 = u => Buffer.from(u).toString("base64");
 mkdirSync(outDir, { recursive: true });
 writeFileSync(join(outDir, "data.enc.json"), JSON.stringify({ v: 1, salt: b64(salt), iv: b64(iv), ct: b64(ct), builtAt: snapshot.builtAt }));
 
+// Compact off-site backup: everything that cannot be re-collected (positions, notes, briefing, memory,
+// history, deep dives) plus the list of research files without their text, which can be fetched again.
+const core = { ...snapshot, reports: snapshot.reports.map(({ text, ...meta }) => meta) };
+const iv2 = crypto.getRandomValues(new Uint8Array(12));
+const ct2 = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv2 }, key, enc.encode(JSON.stringify(core))));
+writeFileSync(join(outDir, "backup-core.enc.json"), JSON.stringify({ v: 1, kind: "core", salt: b64(salt), iv: b64(iv2), ct: b64(ct2), builtAt: snapshot.builtAt }));
+
 // Page: the artifact's UI started after the snapshot is unlocked.
 let page = readFileSync(templatePath, "utf8");
 const start = "<script>\n(() => {\n\"use strict\";";
