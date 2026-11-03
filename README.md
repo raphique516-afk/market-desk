@@ -11,6 +11,6 @@ Henrique's portfolio desk as an installable web app (open in Safari â†’ Share â†
 Three copies, all encrypted with the owner's passphrase:
 1. The live data in the Claude artifact.
 2. Every published `data.enc.json` in this repo's git history (one version per hourly refresh).
-3. `backup-core.enc.json` (positions, notes, agent briefing, memory, call history) copied weekly to Google Drive, folder "Market Desk backups".
+3. Copies saved on the phone: the app's footer has "Save backup" links (full data, or the essentials: positions, notes, agent briefing, memory and call history). On iPhone, save them to Files / iCloud Drive.
 
 Restore: `DESK_PASS=... node tools/decrypt.mjs <file.enc.json> restored.json`, then ask Claude to load `restored.json` back into the artifact.

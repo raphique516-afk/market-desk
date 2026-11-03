@@ -14,7 +14,8 @@
 #gate .err{color:#ff7a6e;min-height:1.2em}
 .ro #add,.ro #add2,.ro #rep-add,.ro #rep-add2,.ro #pack,.ro #pack-stop,.ro #run,.ro #run2,.ro #stop,.ro #refresh,.ro #allow,.ro #deep-all,.ro [data-deep],.ro [data-act="save-notes"],.ro [data-act="edit"],.ro [data-act="del"],.ro [data-act="rep-del"],.ro [data-fbopen],.ro [data-forget]{display:none!important}
 .ro textarea.notes{pointer-events:none;opacity:.85}
-#ro-note{font-size:12px;color:#8fa1b8;padding:6px 16px;background:#0e1a2b;text-align:center}
+#ro-note{font-size:12px;color:#8fa1b8;padding:8px 16px;background:#0e1a2b;text-align:center;line-height:1.6}
+#ro-note a{color:#f0a33a}
 </style>
 <div id="gate"><form id="gate-form" autocomplete="on">
   <h1>Market<i>·</i>Desk</h1>
@@ -70,7 +71,8 @@
     window.claude = { use: async n => n === "db" ? db : n === "user" ? user : null };
     document.getElementById("gate").remove();
     const note = document.createElement("div"); note.id = "ro-note";
-    note.textContent = `Read-only copy · data from ${new Date(snap.builtAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })} · refreshes hourly`;
+    const day = new Date(snap.builtAt).toISOString().slice(0, 10);
+    note.innerHTML = `Read-only copy · data from ${new Date(snap.builtAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })} · refreshes hourly · Save backup: <a href="data.enc.json" download="market-desk-full-${day}.enc.json">full</a> · <a href="backup-core.enc.json" download="market-desk-core-${day}.enc.json">essentials</a>`;
     document.body.appendChild(note);
     window.__startDesk();
   }
