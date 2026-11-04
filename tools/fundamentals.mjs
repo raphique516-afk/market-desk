@@ -16,11 +16,13 @@ for (const t of tickers) {
   const code = t.slice(0, 4);
   const c = out.companies[t] = { issuer: code };
   try {
-    const sup = await get(`${BASE}/GetListedSupplementCompany/${b64({ issuingCompany: code, language: "pt-br" })}`);
+    let sup = await get(`${BASE}/GetListedSupplementCompany/${b64({ issuingCompany: code, language: "pt-br" })}`);
+    if (typeof sup === "string") sup = JSON.parse(sup);
     const s = Array.isArray(sup) ? sup[0] : sup;
-    c.shares = { common: s?.numberCommonShares, preferred: s?.numberPreferredShares, total: s?.totalNumberShares, capital: s?.stockCapital, asOf: s?.quotationFactor ? undefined : undefined };
-    c.cashDividends = (s?.cashDividends || []).slice(0, 16).map(d => ({ type: d.corporateAction, approved: d.approvedOn, exDate: d.lastDatePriorEx, paid: d.paymentDate, perShare: d.rate, cls: d.typeStock || d.isinCode }));
-    c.raw = JSON.stringify(s).slice(0, 1500);
+    const n = v => v == null || v === "" ? null : +String(v).replace(/\./g, "").replace(",", ".");
+    c.shares = { common: n(s?.numberCommonShares), preferred: n(s?.numberPreferredShares), total: n(s?.totalNumberShares) };
+    c.cashDividends = (s?.cashDividends || []).slice(0, 40).map(d => ({ type: d.label, approved: d.approvedOn, lastDateWith: d.lastDatePrior, paid: d.paymentDate, perShare: n(d.rate), isin: d.isinCode, relatedTo: d.relatedTo }));
+    c.keys = Object.keys(s || {});
   } catch (e) { c.error = String(e.message || e); }
   await new Promise(r => setTimeout(r, 500));
 }
