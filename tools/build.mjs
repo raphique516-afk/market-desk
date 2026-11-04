@@ -35,6 +35,8 @@ const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 25
 const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(JSON.stringify(snapshot))));
 const b64 = u => Buffer.from(u).toString("base64");
 mkdirSync(outDir, { recursive: true });
+// Tickers for the live quote feed (.github/workflows/quotes.yml). Only B3 tickers; positions and amounts stay encrypted.
+writeFileSync(join(outDir, "tickers.json"), JSON.stringify(snapshot.holdings.filter(h => (h.currency || "BRL") === "BRL").map(h => h.label).sort()) + "\n");
 writeFileSync(join(outDir, "data.enc.json"), JSON.stringify({ v: 1, salt: b64(salt), iv: b64(iv), ct: b64(ct), builtAt: snapshot.builtAt }));
 
 // Compact off-site backup: everything that cannot be re-collected (positions, notes, briefing, memory,

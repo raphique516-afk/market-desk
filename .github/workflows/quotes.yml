@@ -1,0 +1,33 @@
+name: Live quotes
+on:
+  schedule:
+    - cron: "*/15 12-21 * * 1-5"   # every 15 min, 09:00-18:45 São Paulo, weekdays
+    - cron: "20 22 * * 1-5"        # after the official close
+  push:
+    branches: [main]
+    paths: ["tickers.json", "tools/quotes.mjs", ".github/workflows/quotes.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: quotes
+  cancel-in-progress: false
+jobs:
+  quotes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node tools/quotes.mjs
+      - name: Commit
+        run: |
+          git config user.name "market-desk-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add quotes.json
+          git diff --cached --quiet && exit 0
+          git commit -qm "Live quotes"
+          for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && exit 0; sleep 5; done
+          exit 1

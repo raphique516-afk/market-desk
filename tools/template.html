@@ -417,9 +417,10 @@ function priceFor(h){
   const t = bdRow(h); if (t) c.push({ price:t.price.value, chgPct:t.change_1d_pct, src:"Bigdata.com", day:(t.price.as_of||"").slice(0,10) });
   const q = S.quotes[h.symbol]; if (q && isFinite(q.price)) c.push({ price:q.price, chgPct:q.chgPct, src:"Alpha Vantage", day:q.day||"" });
   const d = S.td[h.symbol]; if (d && isFinite(d.price)) c.push({ price:d.price, chgPct:d.chgPct, src:"Twelve Data", day:d.day||"" });
-  const b = S.backup[h.label]; if (b && isFinite(+b.price)) c.push({ price:+b.price, chgPct:+b.chgPct, src:(b.src||"backup") + " (hourly)", day:b.day||"" });
+  const b = S.backup[h.label]; if (b && isFinite(+b.price)) c.push({ price:+b.price, chgPct:+b.chgPct, src:b.live && b.at ? `${b.src||"live feed"} · ${new Date(b.at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",timeZone:"America/Sao_Paulo"})}` : (b.src||"backup") + " (hourly)", day:b.day||"", live:!!b.live });
   if (!c.length) return null;
-  return c.reduce((best, x) => x.day > best.day ? x : best, c[0]);
+  // Latest trading day wins; on the same day the 15-minute live feed beats sources that may still show an older print.
+  return c.reduce((best, x) => (x.day > best.day || (x.day === best.day && x.live && !best.live)) ? x : best, c[0]);
 }
 const PALETTE = ["--c1","--c2","--c3","--c4","--c5","--c6","--c7","--c8","--c9"];
 function colorFor(label){ const i = (S.holdings||[]).findIndex(h => h.label === label); return `var(${PALETTE[(i < 0 ? 0 : i) % PALETTE.length]})`; }

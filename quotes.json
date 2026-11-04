@@ -1,0 +1,60 @@
+{
+ "quotes": {
+  "AURE3": {
+   "chgPct": -2.39,
+   "day": "2026-11-03",
+   "price": 10.61,
+   "src": "Alpha Vantage"
+  },
+  "BBDC4": {
+   "chgPct": 2.4,
+   "day": "2026-11-04",
+   "price": 13.89,
+   "src": "hgbrasil.com"
+  },
+  "FESA4": {
+   "chgPct": 1.82,
+   "day": "2026-11-04",
+   "price": 5.04,
+   "src": "hgbrasil.com"
+  },
+  "GMAT3": {
+   "chgPct": -0.86,
+   "day": "2026-11-03",
+   "price": 3.47,
+   "src": "Alpha Vantage"
+  },
+  "KLBN11": {
+   "chgPct": 4.03,
+   "day": "2026-11-04",
+   "price": 18.08,
+   "src": "Alpha Vantage"
+  },
+  "LREN3": {
+   "chgPct": 3.53,
+   "day": "2026-11-04",
+   "price": 9.39,
+   "src": "Alpha Vantage"
+  },
+  "NATU3": {
+   "chgPct": 4.32,
+   "day": "2026-11-03",
+   "price": 5.07,
+   "src": "Alpha Vantage"
+  },
+  "POMO4": {
+   "chgPct": -3.51,
+   "day": "2026-11-03",
+   "price": 3.57,
+   "src": "Alpha Vantage"
+  },
+  "SAPR4": {
+   "chgPct": -1.99,
+   "day": "2026-11-03",
+   "price": 5.91,
+   "src": "Alpha Vantage"
+  }
+ },
+ "updatedAt": 1793838600000,
+ "failed": []
+}

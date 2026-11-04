@@ -37,6 +37,8 @@
   function makeDb(snap) {
     const colls = { holdings: snap.holdings || [], reports: snap.reports || [], deep: snap.deep || [], history: snap.history || [] };
     const docs = snap.docs || {};
+    const subs = {};
+    window.__deskPush = (name, data) => { docs[name] = data; (subs[name] || []).forEach(fn => { try { fn(docSnap(name, data)); } catch {} }); };
     const ro = () => Promise.reject({ code: "read_only", message: "Read-only copy" });
     const meta = { fromCache: false, hasPendingWrites: false };
     const docSnap = (id, d) => ({ id, exists: !!d, data: () => d || undefined, metadata: meta });
@@ -54,6 +56,7 @@
             if (colls[last]) { const ds = colls[last].map(d => docSnap(d.id, d)); next({ docs: ds, size: ds.length, empty: !ds.length, metadata: meta, docChanges: () => [] }); }
             else next(docSnap(last, docs[last]));
           }, 0);
+          if (!colls[last]) (subs[last] = subs[last] || []).push(next);
           return () => {};
         }
       };
@@ -68,9 +71,37 @@
     document.getElementById("gate").remove();
     const note = document.createElement("div"); note.id = "ro-note";
     const day = new Date(snap.builtAt).toISOString().slice(0, 10);
-    note.innerHTML = `Read-only copy · data from ${new Date(snap.builtAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })} · refreshes hourly · Save backup: <a href="data.enc.json" download="market-desk-full-${day}.enc.json">full</a> · <a href="backup-core.enc.json" download="market-desk-core-${day}.enc.json">essentials</a>`;
+    note.innerHTML = `Read-only copy · analysis ${new Date(snap.builtAt).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })} · <span id="ro-live">prices loading…</span> · Save backup: <a href="data.enc.json" download="market-desk-full-${day}.enc.json">full</a> · <a href="backup-core.enc.json" download="market-desk-core-${day}.enc.json">essentials</a>`;
     document.body.appendChild(note);
     window.__startDesk();
+    pollQuotes(snap);
+  }
+  // Live prices: quotes.json is refreshed every 15 minutes in B3 hours by a GitHub Action (Yahoo Finance, Google Finance fallback).
+  function mergeQuotes(base, live) {
+    const out = { ...(base?.quotes || {}) };
+    for (const [t, q] of Object.entries(live?.quotes || {})) {
+      const b = out[t];
+      if (!b || !b.day || (q.day || "") >= b.day) out[t] = q;
+    }
+    return { quotes: out, updatedAt: Math.max(base?.updatedAt || 0, live?.updatedAt || 0) };
+  }
+  let liveAt = 0;
+  function pollQuotes(snap) {
+    const tick = async () => {
+      try {
+        const r = await fetch("quotes.json?t=" + Date.now(), { cache: "no-store" });
+        if (!r.ok) return;
+        const live = await r.json();
+        if (live.updatedAt && live.updatedAt !== liveAt) {
+          liveAt = live.updatedAt;
+          window.__deskPush("quotes", mergeQuotes(snap.docs?.quotes, live));
+          const n = document.getElementById("ro-live");
+          if (n) n.textContent = `prices ${new Date(live.updatedAt).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })}`;
+        }
+      } catch {}
+    };
+    tick(); setInterval(tick, 3 * 60 * 1000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
   }
   async function unlock(pass, keep) {
     const err = document.getElementById("gate-err");
