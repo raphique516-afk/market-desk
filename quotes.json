@@ -5,16 +5,16 @@
    "chgPct": 2.37,
    "prevClose": 10.99,
    "day": "2026-11-05",
-   "at": 1793910700000,
+   "at": 1793911294000,
    "src": "B3",
    "live": true
   },
   "BBDC4": {
-   "price": 13.82,
-   "chgPct": -1.71,
+   "price": 13.81,
+   "chgPct": -1.78,
    "prevClose": 14.06,
    "day": "2026-11-05",
-   "at": 1793910700000,
+   "at": 1793911295000,
    "src": "B3",
    "live": true
   },
@@ -23,65 +23,65 @@
    "chgPct": -1.77,
    "prevClose": 5.09,
    "day": "2026-11-05",
-   "at": 1793910701000,
+   "at": 1793911295000,
    "src": "B3",
    "live": true
   },
   "GMAT3": {
-   "price": 3.66,
-   "chgPct": 3.68,
+   "price": 3.65,
+   "chgPct": 3.4,
    "prevClose": 3.53,
    "day": "2026-11-05",
-   "at": 1793910702000,
+   "at": 1793911296000,
    "src": "B3",
    "live": true
   },
   "KLBN11": {
-   "price": 17.46,
-   "chgPct": -3.43,
+   "price": 17.47,
+   "chgPct": -3.37,
    "prevClose": 18.08,
    "day": "2026-11-05",
-   "at": 1793910703000,
+   "at": 1793911297000,
    "src": "B3",
    "live": true
   },
   "LREN3": {
-   "price": 9.52,
-   "chgPct": 1.38,
+   "price": 9.55,
+   "chgPct": 1.7,
    "prevClose": 9.39,
    "day": "2026-11-05",
-   "at": 1793910703000,
+   "at": 1793911298000,
    "src": "B3",
    "live": true
   },
   "NATU3": {
-   "price": 5.32,
-   "chgPct": -1.85,
+   "price": 5.33,
+   "chgPct": -1.66,
    "prevClose": 5.42,
    "day": "2026-11-05",
-   "at": 1793910704000,
+   "at": 1793911299000,
    "src": "B3",
    "live": true
   },
   "POMO4": {
-   "price": 3.57,
-   "chgPct": 0.85,
+   "price": 3.56,
+   "chgPct": 0.56,
    "prevClose": 3.54,
    "day": "2026-11-05",
-   "at": 1793910704000,
+   "at": 1793911299000,
    "src": "B3",
    "live": true
   },
   "SAPR4": {
-   "price": 6.13,
-   "chgPct": -0.33,
+   "price": 6.14,
+   "chgPct": -0.16,
    "prevClose": 6.15,
    "day": "2026-11-05",
-   "at": 1793910705000,
+   "at": 1793911300000,
    "src": "B3",
    "live": true
   }
  },
- "updatedAt": 1793910705898,
+ "updatedAt": 1793911301039,
  "failed": []
 }
