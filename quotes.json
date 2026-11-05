@@ -1,20 +1,20 @@
 {
  "quotes": {
   "AURE3": {
-   "price": 11.2,
-   "chgPct": 1.91,
+   "price": 11.15,
+   "chgPct": 1.46,
    "prevClose": 10.99,
    "day": "2026-11-05",
-   "at": 1793897969000,
+   "at": 1793898878000,
    "src": "B3",
    "live": true
   },
   "BBDC4": {
-   "price": 13.77,
-   "chgPct": -2.06,
+   "price": 13.87,
+   "chgPct": -1.35,
    "prevClose": 14.06,
    "day": "2026-11-05",
-   "at": 1793897970000,
+   "at": 1793898878000,
    "src": "B3",
    "live": true
   },
@@ -23,7 +23,7 @@
    "chgPct": -0.79,
    "prevClose": 5.09,
    "day": "2026-11-05",
-   "at": 1793897971000,
+   "at": 1793898879000,
    "src": "B3",
    "live": true
   },
@@ -32,56 +32,56 @@
    "chgPct": 1.98,
    "prevClose": 3.53,
    "day": "2026-11-05",
-   "at": 1793897972000,
+   "at": 1793898880000,
    "src": "B3",
    "live": true
   },
   "KLBN11": {
-   "price": 17.68,
-   "chgPct": -2.21,
+   "price": 17.66,
+   "chgPct": -2.32,
    "prevClose": 18.08,
    "day": "2026-11-05",
-   "at": 1793897973000,
+   "at": 1793898880000,
    "src": "B3",
    "live": true
   },
   "LREN3": {
-   "price": 9.51,
-   "chgPct": 1.28,
+   "price": 9.49,
+   "chgPct": 1.06,
    "prevClose": 9.39,
    "day": "2026-11-05",
-   "at": 1793897973000,
+   "at": 1793898881000,
    "src": "B3",
    "live": true
   },
   "NATU3": {
-   "price": 5.38,
-   "chgPct": -0.74,
+   "price": 5.36,
+   "chgPct": -1.11,
    "prevClose": 5.42,
    "day": "2026-11-05",
-   "at": 1793897974000,
+   "at": 1793898882000,
    "src": "B3",
    "live": true
   },
   "POMO4": {
-   "price": 3.61,
-   "chgPct": 1.98,
+   "price": 3.59,
+   "chgPct": 1.41,
    "prevClose": 3.54,
    "day": "2026-11-05",
-   "at": 1793897974000,
+   "at": 1793898882000,
    "src": "B3",
    "live": true
   },
   "SAPR4": {
-   "price": 6.14,
-   "chgPct": -0.16,
+   "price": 6.17,
+   "chgPct": 0.33,
    "prevClose": 6.15,
    "day": "2026-11-05",
-   "at": 1793897975000,
+   "at": 1793898883000,
    "src": "B3",
    "live": true
   }
  },
- "updatedAt": 1793897976041,
+ "updatedAt": 1793898883759,
  "failed": []
 }
