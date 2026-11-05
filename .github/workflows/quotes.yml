@@ -1,7 +1,9 @@
 name: Live quotes
+# GitHub runs scheduled workflows roughly once an hour at best, so each run loops
+# internally and refreshes quotes.json every 15 minutes until the next run takes over.
 on:
   schedule:
-    - cron: "*/15 12-21 * * 1-5"   # every 15 min, 09:00-18:45 São Paulo, weekdays
+    - cron: "2 12-21 * * 1-5"      # hourly, 09:02-18:02 São Paulo, weekdays
     - cron: "20 22 * * 1-5"        # after the official close
   push:
     branches: [main]
@@ -11,23 +13,29 @@ permissions:
   contents: write
 concurrency:
   group: quotes
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   quotes:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: node tools/quotes.mjs
-      - name: Commit
+      - name: Refresh every 15 minutes
         run: |
           git config user.name "market-desk-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add quotes.json
-          git diff --cached --quiet && exit 0
-          git commit -qm "Live quotes"
-          for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && exit 0; sleep 5; done
-          exit 1
+          for round in 1 2 3 4 5; do
+            git pull -q --rebase origin main || true
+            node tools/quotes.mjs || true
+            git add quotes.json
+            if ! git diff --cached --quiet; then
+              git commit -qm "Live quotes"
+              for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break; sleep 5; done
+            fi
+            hour=$(TZ=America/Sao_Paulo date +%H%M)
+            if [ "$round" = 5 ] || [ "$hour" -ge 1830 ] || [ "$hour" -lt 0950 ]; then break; fi
+            sleep 900
+          done

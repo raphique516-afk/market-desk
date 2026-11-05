@@ -9,7 +9,7 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: quotes
+  group: facts
   cancel-in-progress: false
 jobs:
   facts:
