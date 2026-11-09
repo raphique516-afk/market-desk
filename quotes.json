@@ -1,56 +1,56 @@
 {
  "quotes": {
   "AURE3": {
-   "price": 11.84,
-   "chgPct": 2.33,
+   "price": 11.87,
+   "chgPct": 2.59,
    "prevClose": 11.57,
    "day": "2026-11-09",
-   "at": 1794257042000,
+   "at": 1794257950000,
    "src": "B3",
    "live": true
   },
   "BBDC4": {
-   "price": 14.62,
-   "chgPct": 2.96,
+   "price": 14.61,
+   "chgPct": 2.89,
    "prevClose": 14.2,
    "day": "2026-11-09",
-   "at": 1794257043000,
+   "at": 1794257951000,
    "src": "B3",
    "live": true
   },
   "FESA4": {
-   "price": 5.19,
-   "chgPct": 1.76,
+   "price": 5.18,
+   "chgPct": 1.57,
    "prevClose": 5.1,
    "day": "2026-11-09",
-   "at": 1794257043000,
+   "at": 1794257951000,
    "src": "B3",
    "live": true
   },
   "GMAT3": {
-   "price": 3.85,
-   "chgPct": 1.32,
+   "price": 3.86,
+   "chgPct": 1.58,
    "prevClose": 3.8,
    "day": "2026-11-09",
-   "at": 1794257044000,
+   "at": 1794257952000,
    "src": "B3",
    "live": true
   },
   "KLBN11": {
-   "price": 17.73,
-   "chgPct": 0.74,
+   "price": 17.75,
+   "chgPct": 0.85,
    "prevClose": 17.6,
    "day": "2026-11-09",
-   "at": 1794257045000,
+   "at": 1794257952000,
    "src": "B3",
    "live": true
   },
   "LREN3": {
-   "price": 10.15,
-   "chgPct": 2.22,
+   "price": 10.17,
+   "chgPct": 2.42,
    "prevClose": 9.93,
    "day": "2026-11-09",
-   "at": 1794257045000,
+   "at": 1794257953000,
    "src": "B3",
    "live": true
   },
@@ -59,16 +59,16 @@
    "chgPct": 9.86,
    "prevClose": 5.17,
    "day": "2026-11-09",
-   "at": 1794257046000,
+   "at": 1794257954000,
    "src": "B3",
    "live": true
   },
   "POMO4": {
-   "price": 3.8,
-   "chgPct": 3.26,
+   "price": 3.81,
+   "chgPct": 3.53,
    "prevClose": 3.68,
    "day": "2026-11-09",
-   "at": 1794257047000,
+   "at": 1794257954000,
    "src": "B3",
    "live": true
   },
@@ -77,11 +77,11 @@
    "chgPct": 3.5,
    "prevClose": 6.29,
    "day": "2026-11-09",
-   "at": 1794257048000,
+   "at": 1794257955000,
    "src": "B3",
    "live": true
   }
  },
- "updatedAt": 1794257048524,
+ "updatedAt": 1794257955624,
  "failed": []
 }
