@@ -1,20 +1,20 @@
 {
  "quotes": {
   "AURE3": {
-   "price": 11.78,
-   "chgPct": 1.82,
+   "price": 11.79,
+   "chgPct": 1.9,
    "prevClose": 11.57,
    "day": "2026-11-09",
-   "at": 1794249361000,
+   "at": 1794249904000,
    "src": "B3",
    "live": true
   },
   "BBDC4": {
-   "price": 14.5,
-   "chgPct": 2.11,
+   "price": 14.52,
+   "chgPct": 2.25,
    "prevClose": 14.2,
    "day": "2026-11-09",
-   "at": 1794249362000,
+   "at": 1794249904000,
    "src": "B3",
    "live": true
   },
@@ -23,65 +23,65 @@
    "chgPct": 0.78,
    "prevClose": 5.1,
    "day": "2026-11-09",
-   "at": 1794249363000,
+   "at": 1794249905000,
    "src": "B3",
    "live": true
   },
   "GMAT3": {
-   "price": 3.85,
-   "chgPct": 1.32,
+   "price": 3.86,
+   "chgPct": 1.58,
    "prevClose": 3.8,
    "day": "2026-11-09",
-   "at": 1794249364000,
+   "at": 1794249905000,
    "src": "B3",
    "live": true
   },
   "KLBN11": {
-   "price": 17.61,
-   "chgPct": 0.06,
+   "price": 17.62,
+   "chgPct": 0.11,
    "prevClose": 17.6,
    "day": "2026-11-09",
-   "at": 1794249365000,
+   "at": 1794249906000,
    "src": "B3",
    "live": true
   },
   "LREN3": {
-   "price": 10.11,
-   "chgPct": 1.81,
+   "price": 10.12,
+   "chgPct": 1.91,
    "prevClose": 9.93,
    "day": "2026-11-09",
-   "at": 1794249366000,
+   "at": 1794249906000,
    "src": "B3",
    "live": true
   },
   "NATU3": {
-   "price": 5.55,
-   "chgPct": 7.35,
+   "price": 5.54,
+   "chgPct": 7.16,
    "prevClose": 5.17,
    "day": "2026-11-09",
-   "at": 1794249368000,
+   "at": 1794249907000,
    "src": "B3",
    "live": true
   },
   "POMO4": {
-   "price": 3.79,
-   "chgPct": 2.99,
+   "price": 3.78,
+   "chgPct": 2.72,
    "prevClose": 3.68,
    "day": "2026-11-09",
-   "at": 1794249368000,
+   "at": 1794249908000,
    "src": "B3",
    "live": true
   },
   "SAPR4": {
-   "price": 6.46,
-   "chgPct": 2.7,
+   "price": 6.45,
+   "chgPct": 2.54,
    "prevClose": 6.29,
    "day": "2026-11-09",
-   "at": 1794249370000,
+   "at": 1794249908000,
    "src": "B3",
    "live": true
   }
  },
- "updatedAt": 1794249371159,
+ "updatedAt": 1794249909449,
  "failed": []
 }
