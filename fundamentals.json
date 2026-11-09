@@ -1,5 +1,5 @@
 {
- "updatedAt": 1793893938651,
+ "updatedAt": 1794223744303,
  "companies": {
   "AURE3": {
    "issuer": "AURE",
@@ -353,44 +353,7 @@
     "preferred": 235450000,
     "total": 353175000
    },
-   "cashDividends": [
-    {
-     "type": "JRS CAP PROPRIO",
-     "approved": "29/10/2025",
-     "lastDateWith": "05/11/2025",
-     "paid": "05/12/2025",
-     "perShare": 0.20221922581,
-     "isin": "BRFESAACNOR8",
-     "relatedTo": "Anual/2025"
-    },
-    {
-     "type": "JRS CAP PROPRIO",
-     "approved": "29/10/2025",
-     "lastDateWith": "05/11/2025",
-     "paid": "12/06/2026",
-     "perShare": 0.38781769333,
-     "isin": "BRFESAACNOR8",
-     "relatedTo": "Anual/2025"
-    },
-    {
-     "type": "JRS CAP PROPRIO",
-     "approved": "29/10/2025",
-     "lastDateWith": "05/11/2025",
-     "paid": "05/12/2025",
-     "perShare": 0.22244114839,
-     "isin": "BRFESAACNPR5",
-     "relatedTo": "Anual/2025"
-    },
-    {
-     "type": "JRS CAP PROPRIO",
-     "approved": "29/10/2025",
-     "lastDateWith": "05/11/2025",
-     "paid": "12/06/2026",
-     "perShare": 0.42659946266,
-     "isin": "BRFESAACNPR5",
-     "relatedTo": "Anual/2025"
-    }
-   ],
+   "cashDividends": [],
    "keys": [
     "stockCapital",
     "quotedPerSharSince",
