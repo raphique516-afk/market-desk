@@ -5,16 +5,16 @@
    "chgPct": 2.33,
    "prevClose": 11.57,
    "day": "2026-11-09",
-   "at": 1794255496000,
+   "at": 1794256405000,
    "src": "B3",
    "live": true
   },
   "BBDC4": {
-   "price": 14.58,
-   "chgPct": 2.68,
+   "price": 14.61,
+   "chgPct": 2.89,
    "prevClose": 14.2,
    "day": "2026-11-09",
-   "at": 1794255497000,
+   "at": 1794256405000,
    "src": "B3",
    "live": true
   },
@@ -23,65 +23,65 @@
    "chgPct": 1.76,
    "prevClose": 5.1,
    "day": "2026-11-09",
-   "at": 1794255497000,
+   "at": 1794256406000,
    "src": "B3",
    "live": true
   },
   "GMAT3": {
-   "price": 3.85,
-   "chgPct": 1.32,
+   "price": 3.86,
+   "chgPct": 1.58,
    "prevClose": 3.8,
    "day": "2026-11-09",
-   "at": 1794255498000,
+   "at": 1794256407000,
    "src": "B3",
    "live": true
   },
   "KLBN11": {
-   "price": 17.75,
-   "chgPct": 0.85,
+   "price": 17.72,
+   "chgPct": 0.68,
    "prevClose": 17.6,
    "day": "2026-11-09",
-   "at": 1794255499000,
+   "at": 1794256408000,
    "src": "B3",
    "live": true
   },
   "LREN3": {
-   "price": 10.18,
-   "chgPct": 2.52,
+   "price": 10.16,
+   "chgPct": 2.32,
    "prevClose": 9.93,
    "day": "2026-11-09",
-   "at": 1794255499000,
+   "at": 1794256408000,
    "src": "B3",
    "live": true
   },
   "NATU3": {
-   "price": 5.65,
-   "chgPct": 9.28,
+   "price": 5.66,
+   "chgPct": 9.48,
    "prevClose": 5.17,
    "day": "2026-11-09",
-   "at": 1794255500000,
+   "at": 1794256409000,
    "src": "B3",
    "live": true
   },
   "POMO4": {
-   "price": 3.82,
-   "chgPct": 3.8,
+   "price": 3.81,
+   "chgPct": 3.53,
    "prevClose": 3.68,
    "day": "2026-11-09",
-   "at": 1794255500000,
+   "at": 1794256410000,
    "src": "B3",
    "live": true
   },
   "SAPR4": {
-   "price": 6.51,
-   "chgPct": 3.5,
+   "price": 6.49,
+   "chgPct": 3.18,
    "prevClose": 6.29,
    "day": "2026-11-09",
-   "at": 1794255501000,
+   "at": 1794256410000,
    "src": "B3",
    "live": true
   }
  },
- "updatedAt": 1794255502066,
+ "updatedAt": 1794256411328,
  "failed": []
 }
