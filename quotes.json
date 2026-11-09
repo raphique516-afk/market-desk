@@ -1,20 +1,20 @@
 {
  "quotes": {
   "AURE3": {
-   "price": 11.67,
-   "chgPct": 0.86,
+   "price": 11.73,
+   "chgPct": 1.38,
    "prevClose": 11.57,
    "day": "2026-11-09",
-   "at": 1794230761000,
+   "at": 1794231672000,
    "src": "B3",
    "live": true
   },
   "BBDC4": {
-   "price": 14.42,
-   "chgPct": 1.55,
+   "price": 14.54,
+   "chgPct": 2.39,
    "prevClose": 14.2,
    "day": "2026-11-09",
-   "at": 1794230762000,
+   "at": 1794231673000,
    "src": "B3",
    "live": true
   },
@@ -23,43 +23,43 @@
    "chgPct": 0.2,
    "prevClose": 5.1,
    "day": "2026-11-09",
-   "at": 1794230763000,
+   "at": 1794231674000,
    "src": "B3",
    "live": true
   },
   "GMAT3": {
-   "price": 3.81,
-   "chgPct": 0.26,
+   "price": 3.87,
+   "chgPct": 1.84,
    "prevClose": 3.8,
    "day": "2026-11-09",
-   "at": 1794230764000,
+   "at": 1794231675000,
    "src": "B3",
    "live": true
   },
   "KLBN11": {
-   "price": 17.47,
-   "chgPct": -0.74,
+   "price": 17.38,
+   "chgPct": -1.25,
    "prevClose": 17.6,
    "day": "2026-11-09",
-   "at": 1794230765000,
+   "at": 1794231676000,
    "src": "B3",
    "live": true
   },
   "LREN3": {
-   "price": 9.99,
-   "chgPct": 0.6,
+   "price": 9.92,
+   "chgPct": -0.1,
    "prevClose": 9.93,
    "day": "2026-11-09",
-   "at": 1794230766000,
+   "at": 1794231677000,
    "src": "B3",
    "live": true
   },
   "NATU3": {
-   "price": 5.18,
-   "chgPct": 0.19,
+   "price": 5.13,
+   "chgPct": -0.77,
    "prevClose": 5.17,
    "day": "2026-11-09",
-   "at": 1794230767000,
+   "at": 1794231678000,
    "src": "B3",
    "live": true
   },
@@ -68,20 +68,20 @@
    "chgPct": 0.54,
    "prevClose": 3.68,
    "day": "2026-11-09",
-   "at": 1794230768000,
+   "at": 1794231679000,
    "src": "B3",
    "live": true
   },
   "SAPR4": {
-   "price": 6.37,
-   "chgPct": 1.27,
+   "price": 6.39,
+   "chgPct": 1.59,
    "prevClose": 6.29,
    "day": "2026-11-09",
-   "at": 1794230769000,
+   "at": 1794231680000,
    "src": "B3",
    "live": true
   }
  },
- "updatedAt": 1794230770077,
+ "updatedAt": 1794231681390,
  "failed": []
 }
