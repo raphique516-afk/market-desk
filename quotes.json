@@ -5,25 +5,25 @@
    "chgPct": -2.27,
    "prevClose": 11.89,
    "day": "2026-11-10",
-   "at": 1794326977000,
+   "at": 1794327885000,
    "src": "B3",
    "live": true
   },
   "BBDC4": {
-   "price": 14.54,
-   "chgPct": -0.95,
+   "price": 14.52,
+   "chgPct": -1.09,
    "prevClose": 14.68,
    "day": "2026-11-10",
-   "at": 1794326978000,
+   "at": 1794327885000,
    "src": "B3",
    "live": true
   },
   "FESA4": {
-   "price": 5.3,
-   "chgPct": 2.91,
+   "price": 5.36,
+   "chgPct": 4.08,
    "prevClose": 5.15,
    "day": "2026-11-10",
-   "at": 1794326979000,
+   "at": 1794327886000,
    "src": "B3",
    "live": true
   },
@@ -32,56 +32,56 @@
    "chgPct": -0.52,
    "prevClose": 3.83,
    "day": "2026-11-10",
-   "at": 1794326979000,
+   "at": 1794327887000,
    "src": "B3",
    "live": true
   },
   "KLBN11": {
-   "price": 17.8,
-   "chgPct": -0.28,
+   "price": 17.7,
+   "chgPct": -0.84,
    "prevClose": 17.85,
    "day": "2026-11-10",
-   "at": 1794326980000,
+   "at": 1794327890000,
    "src": "B3",
    "live": true
   },
   "LREN3": {
-   "price": 9.64,
-   "chgPct": -4.93,
+   "price": 9.63,
+   "chgPct": -5.03,
    "prevClose": 10.14,
    "day": "2026-11-10",
-   "at": 1794326980000,
+   "at": 1794327890000,
    "src": "B3",
    "live": true
   },
   "NATU3": {
-   "price": 5.56,
-   "chgPct": -2.63,
+   "price": 5.55,
+   "chgPct": -2.8,
    "prevClose": 5.71,
    "day": "2026-11-10",
-   "at": 1794326981000,
+   "at": 1794327891000,
    "src": "B3",
    "live": true
   },
   "POMO4": {
-   "price": 3.7,
-   "chgPct": -2.89,
+   "price": 3.69,
+   "chgPct": -3.15,
    "prevClose": 3.81,
    "day": "2026-11-10",
-   "at": 1794326981000,
+   "at": 1794327892000,
    "src": "B3",
    "live": true
   },
   "SAPR4": {
-   "price": 6.38,
-   "chgPct": -1.54,
+   "price": 6.39,
+   "chgPct": -1.39,
    "prevClose": 6.48,
    "day": "2026-11-10",
-   "at": 1794326982000,
+   "at": 1794327892000,
    "src": "B3",
    "live": true
   }
  },
- "updatedAt": 1794326983003,
+ "updatedAt": 1794327893202,
  "failed": []
 }
