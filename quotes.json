@@ -82,6 +82,16 @@
    "live": true
   }
  },
- "updatedAt": 1794488113251,
- "failed": []
+ "updatedAt": 1794489026407,
+ "failed": [
+  "AURE3",
+  "BBDC4",
+  "FESA4",
+  "GMAT3",
+  "KLBN11",
+  "LREN3",
+  "NATU3",
+  "POMO4",
+  "SAPR4"
+ ]
 }
