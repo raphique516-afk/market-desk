@@ -5,61 +5,61 @@
    "chgPct": 2.03,
    "prevClose": 11.8,
    "day": "2026-11-13",
-   "at": 1794593580000,
+   "at": 1794594488000,
    "src": "B3",
    "live": true
   },
   "BBDC4": {
-   "price": 14.46,
-   "chgPct": 0.98,
+   "price": 14.45,
+   "chgPct": 0.91,
    "prevClose": 14.32,
    "day": "2026-11-13",
-   "at": 1794593581000,
+   "at": 1794594489000,
    "src": "B3",
    "live": true
   },
   "FESA4": {
-   "price": 5.45,
-   "chgPct": -0.73,
+   "price": 5.47,
+   "chgPct": -0.36,
    "prevClose": 5.49,
    "day": "2026-11-13",
-   "at": 1794593581000,
+   "at": 1794594489000,
    "src": "B3",
    "live": true
   },
   "GMAT3": {
-   "price": 4.29,
-   "chgPct": 11.72,
+   "price": 4.32,
+   "chgPct": 12.5,
    "prevClose": 3.84,
    "day": "2026-11-13",
-   "at": 1794593582000,
+   "at": 1794594490000,
    "src": "B3",
    "live": true
   },
   "KLBN11": {
-   "price": 17.43,
-   "chgPct": -1.19,
+   "price": 17.44,
+   "chgPct": -1.13,
    "prevClose": 17.64,
    "day": "2026-11-13",
-   "at": 1794593583000,
+   "at": 1794594491000,
    "src": "B3",
    "live": true
   },
   "LREN3": {
-   "price": 9.65,
-   "chgPct": 2.66,
+   "price": 9.64,
+   "chgPct": 2.55,
    "prevClose": 9.4,
    "day": "2026-11-13",
-   "at": 1794593583000,
+   "at": 1794594492000,
    "src": "B3",
    "live": true
   },
   "NATU3": {
-   "price": 5.13,
-   "chgPct": -3.75,
+   "price": 5.11,
+   "chgPct": -4.13,
    "prevClose": 5.33,
    "day": "2026-11-13",
-   "at": 1794593584000,
+   "at": 1794594492000,
    "src": "B3",
    "live": true
   },
@@ -68,7 +68,7 @@
    "chgPct": 1.61,
    "prevClose": 3.72,
    "day": "2026-11-13",
-   "at": 1794593584000,
+   "at": 1794594493000,
    "src": "B3",
    "live": true
   },
@@ -77,11 +77,11 @@
    "chgPct": -0.94,
    "prevClose": 6.4,
    "day": "2026-11-13",
-   "at": 1794593585000,
+   "at": 1794594494000,
    "src": "B3",
    "live": true
   }
  },
- "updatedAt": 1794593585985,
+ "updatedAt": 1794594494663,
  "failed": []
 }
