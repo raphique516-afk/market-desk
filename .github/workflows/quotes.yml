@@ -3,7 +3,7 @@ name: Live quotes
 # internally and refreshes quotes.json every 15 minutes until the next run takes over.
 on:
   schedule:
-    - cron: "2 12-21 * * 1-5"      # hourly, 09:02-18:02 São Paulo, weekdays
+    - cron: "2,22,42 12-21 * * 1-5"   # several chances an hour; GitHub skips many scheduled runs
     - cron: "20 22 * * 1-5"        # after the official close
   push:
     branches: [main]
@@ -13,7 +13,7 @@ permissions:
   contents: write
 concurrency:
   group: quotes
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   quotes:
     runs-on: ubuntu-latest
