@@ -1,5 +1,5 @@
 {
- "updatedAt": 1794223744303,
+ "updatedAt": 1794829654122,
  "companies": {
   "AURE3": {
    "issuer": "AURE",
@@ -525,33 +525,6 @@
      "lastDateWith": "15/12/2025",
      "paid": "12/11/2026",
      "perShare": 0.22798586123,
-     "isin": "BRKLBNCDAM18",
-     "relatedTo": "3º Trimestre/2025"
-    },
-    {
-     "type": "DIVIDENDO",
-     "approved": "03/11/2025",
-     "lastDateWith": "07/11/2025",
-     "paid": "19/11/2025",
-     "perShare": 0.05215774063,
-     "isin": "BRKLBNACNOR2",
-     "relatedTo": "3º Trimestre/2025"
-    },
-    {
-     "type": "DIVIDENDO",
-     "approved": "03/11/2025",
-     "lastDateWith": "07/11/2025",
-     "paid": "19/11/2025",
-     "perShare": 0.05215774063,
-     "isin": "BRKLBNACNPR9",
-     "relatedTo": "3º Trimestre/2025"
-    },
-    {
-     "type": "DIVIDENDO",
-     "approved": "03/11/2025",
-     "lastDateWith": "07/11/2025",
-     "paid": "19/11/2025",
-     "perShare": 0.26078870315,
      "isin": "BRKLBNCDAM18",
      "relatedTo": "3º Trimestre/2025"
     }
