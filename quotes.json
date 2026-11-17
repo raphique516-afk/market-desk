@@ -10,29 +10,29 @@
    "live": true
   },
   "BBDC4": {
-   "price": 14.23,
-   "chgPct": -2,
-   "prevClose": 14.52,
+   "price": 14.29,
+   "chgPct": 0.42,
+   "prevClose": 14.23,
    "day": "2026-11-17",
-   "at": 1794919937000,
+   "at": 1794921756000,
    "src": "B3",
    "live": true
   },
   "FESA4": {
-   "price": 5.45,
-   "chgPct": -0.73,
-   "prevClose": 5.49,
+   "price": 5.44,
+   "chgPct": -0.18,
+   "prevClose": 5.45,
    "day": "2026-11-17",
-   "at": 1794919938000,
+   "at": 1794921757000,
    "src": "B3",
    "live": true
   },
   "GMAT3": {
-   "price": 4.13,
-   "chgPct": -2.82,
-   "prevClose": 4.25,
+   "price": 4.14,
+   "chgPct": 0.24,
+   "prevClose": 4.13,
    "day": "2026-11-17",
-   "at": 1794919938000,
+   "at": 1794921757000,
    "src": "B3",
    "live": true
   },
@@ -46,52 +46,45 @@
    "live": true
   },
   "LREN3": {
-   "price": 9.58,
-   "chgPct": -1.44,
-   "prevClose": 9.72,
+   "price": 9.65,
+   "chgPct": 0.73,
+   "prevClose": 9.58,
    "day": "2026-11-17",
-   "at": 1794919939000,
+   "at": 1794921759000,
    "src": "B3",
    "live": true
   },
   "NATU3": {
-   "price": 4.9,
-   "chgPct": -4.48,
-   "prevClose": 5.13,
+   "price": 4.95,
+   "chgPct": 1.02,
+   "prevClose": 4.9,
    "day": "2026-11-17",
-   "at": 1794919940000,
+   "at": 1794921759000,
    "src": "B3",
    "live": true
   },
   "POMO4": {
-   "price": 3.81,
-   "chgPct": 1.6,
-   "prevClose": 3.75,
+   "price": 3.83,
+   "chgPct": 0.52,
+   "prevClose": 3.81,
    "day": "2026-11-17",
-   "at": 1794919941000,
+   "at": 1794921760000,
    "src": "B3",
    "live": true
   },
   "SAPR4": {
-   "price": 6.55,
-   "chgPct": 4.3,
-   "prevClose": 6.28,
+   "price": 6.57,
+   "chgPct": 0.31,
+   "prevClose": 6.55,
    "day": "2026-11-17",
-   "at": 1794919941000,
+   "at": 1794921761000,
    "src": "B3",
    "live": true
   }
  },
- "updatedAt": 1794920853539,
+ "updatedAt": 1794921761501,
  "failed": [
   "AURE3",
-  "BBDC4",
-  "FESA4",
-  "GMAT3",
-  "KLBN11",
-  "LREN3",
-  "NATU3",
-  "POMO4",
-  "SAPR4"
+  "KLBN11"
  ]
 }
