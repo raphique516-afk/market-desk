@@ -5,25 +5,25 @@
    "chgPct": -2.27,
    "prevClose": 11.91,
    "day": "2026-11-23",
-   "at": 1795452182000,
+   "at": 1795452797000,
    "src": "B3",
    "live": true
   },
   "BBDC4": {
-   "price": 13.78,
-   "chgPct": -0.36,
+   "price": 13.75,
+   "chgPct": -0.58,
    "prevClose": 13.83,
    "day": "2026-11-23",
-   "at": 1795452182000,
+   "at": 1795452797000,
    "src": "B3",
    "live": true
   },
   "FESA4": {
-   "price": 5.07,
-   "chgPct": -2.5,
+   "price": 5.09,
+   "chgPct": -2.12,
    "prevClose": 5.2,
    "day": "2026-11-23",
-   "at": 1795452183000,
+   "at": 1795452798000,
    "src": "B3",
    "live": true
   },
@@ -32,56 +32,56 @@
    "chgPct": -0.48,
    "prevClose": 4.18,
    "day": "2026-11-23",
-   "at": 1795452184000,
+   "at": 1795452799000,
    "src": "B3",
    "live": true
   },
   "KLBN11": {
-   "price": 16.59,
-   "chgPct": -2.07,
+   "price": 16.64,
+   "chgPct": -1.77,
    "prevClose": 16.94,
    "day": "2026-11-23",
-   "at": 1795452184000,
+   "at": 1795452799000,
    "src": "B3",
    "live": true
   },
   "LREN3": {
-   "price": 9.1,
-   "chgPct": 0,
+   "price": 9.13,
+   "chgPct": 0.33,
    "prevClose": 9.1,
    "day": "2026-11-23",
-   "at": 1795452185000,
+   "at": 1795452800000,
    "src": "B3",
    "live": true
   },
   "NATU3": {
-   "price": 4.47,
-   "chgPct": -0.22,
+   "price": 4.48,
+   "chgPct": 0,
    "prevClose": 4.48,
    "day": "2026-11-23",
-   "at": 1795452186000,
+   "at": 1795452800000,
    "src": "B3",
    "live": true
   },
   "POMO4": {
-   "price": 3.54,
-   "chgPct": -2.21,
+   "price": 3.55,
+   "chgPct": -1.93,
    "prevClose": 3.62,
    "day": "2026-11-23",
-   "at": 1795452186000,
+   "at": 1795452801000,
    "src": "B3",
    "live": true
   },
   "SAPR4": {
-   "price": 6.59,
-   "chgPct": -0.45,
+   "price": 6.57,
+   "chgPct": -0.76,
    "prevClose": 6.62,
    "day": "2026-11-23",
-   "at": 1795452187000,
+   "at": 1795452801000,
    "src": "B3",
    "live": true
   }
  },
- "updatedAt": 1795452187745,
+ "updatedAt": 1795452802222,
  "failed": []
 }
