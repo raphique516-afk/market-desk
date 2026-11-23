@@ -1,5 +1,5 @@
 {
- "updatedAt": 1794829654122,
+ "updatedAt": 1795433330324,
  "companies": {
   "AURE3": {
    "issuer": "AURE",
@@ -381,17 +381,7 @@
     "preferred": 0,
     "total": 2303692568
    },
-   "cashDividends": [
-    {
-     "type": "JRS CAP PROPRIO",
-     "approved": "14/11/2025",
-     "lastDateWith": "19/11/2025",
-     "paid": "30/12/2025",
-     "perShare": 0.0495738577,
-     "isin": "BRGMATACNOR7",
-     "relatedTo": "4º Trimestre/2025"
-    }
-   ],
+   "cashDividends": [],
    "keys": [
     "stockCapital",
     "quotedPerSharSince",
