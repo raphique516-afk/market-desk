@@ -1,20 +1,20 @@
 {
  "quotes": {
   "AURE3": {
-   "price": 11.61,
-   "chgPct": -2.52,
+   "price": 11.66,
+   "chgPct": -2.1,
    "prevClose": 11.91,
    "day": "2026-11-23",
-   "at": 1795455517000,
+   "at": 1795456424000,
    "src": "B3",
    "live": true
   },
   "BBDC4": {
-   "price": 13.67,
-   "chgPct": -1.16,
+   "price": 13.66,
+   "chgPct": -1.23,
    "prevClose": 13.83,
    "day": "2026-11-23",
-   "at": 1795455518000,
+   "at": 1795456425000,
    "src": "B3",
    "live": true
   },
@@ -23,7 +23,7 @@
    "chgPct": -2.88,
    "prevClose": 5.2,
    "day": "2026-11-23",
-   "at": 1795455519000,
+   "at": 1795456425000,
    "src": "B3",
    "live": true
   },
@@ -32,43 +32,43 @@
    "chgPct": -1.2,
    "prevClose": 4.18,
    "day": "2026-11-23",
-   "at": 1795455519000,
+   "at": 1795456426000,
    "src": "B3",
    "live": true
   },
   "KLBN11": {
-   "price": 16.56,
-   "chgPct": -2.24,
+   "price": 16.58,
+   "chgPct": -2.13,
    "prevClose": 16.94,
    "day": "2026-11-23",
-   "at": 1795455520000,
+   "at": 1795456426000,
    "src": "B3",
    "live": true
   },
   "LREN3": {
-   "price": 9.09,
-   "chgPct": -0.11,
+   "price": 9.08,
+   "chgPct": -0.22,
    "prevClose": 9.1,
    "day": "2026-11-23",
-   "at": 1795455520000,
+   "at": 1795456427000,
    "src": "B3",
    "live": true
   },
   "NATU3": {
-   "price": 4.45,
-   "chgPct": -0.67,
+   "price": 4.47,
+   "chgPct": -0.22,
    "prevClose": 4.48,
    "day": "2026-11-23",
-   "at": 1795455521000,
+   "at": 1795456427000,
    "src": "B3",
    "live": true
   },
   "POMO4": {
-   "price": 3.54,
-   "chgPct": -2.21,
+   "price": 3.55,
+   "chgPct": -1.93,
    "prevClose": 3.62,
    "day": "2026-11-23",
-   "at": 1795455521000,
+   "at": 1795456428000,
    "src": "B3",
    "live": true
   },
@@ -77,11 +77,11 @@
    "chgPct": -0.6,
    "prevClose": 6.62,
    "day": "2026-11-23",
-   "at": 1795455522000,
+   "at": 1795456429000,
    "src": "B3",
    "live": true
   }
  },
- "updatedAt": 1795455522779,
+ "updatedAt": 1795456429571,
  "failed": []
 }
