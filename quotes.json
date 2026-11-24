@@ -1,47 +1,47 @@
 {
  "quotes": {
   "AURE3": {
-   "price": 11.95,
-   "chgPct": 2.22,
+   "price": 11.88,
+   "chgPct": 1.63,
    "prevClose": 11.69,
    "day": "2026-11-24",
-   "at": 1795535689000,
+   "at": 1795536595000,
    "src": "B3",
    "live": true
   },
   "BBDC4": {
-   "price": 13.89,
-   "chgPct": 1.31,
+   "price": 13.84,
+   "chgPct": 0.95,
    "prevClose": 13.71,
    "day": "2026-11-24",
-   "at": 1795535689000,
+   "at": 1795536596000,
    "src": "B3",
    "live": true
   },
   "FESA4": {
-   "price": 4.98,
-   "chgPct": -1.58,
+   "price": 4.95,
+   "chgPct": -2.17,
    "prevClose": 5.06,
    "day": "2026-11-24",
-   "at": 1795535690000,
+   "at": 1795536597000,
    "src": "B3",
    "live": true
   },
   "GMAT3": {
-   "price": 4.14,
-   "chgPct": 0.73,
+   "price": 4.16,
+   "chgPct": 1.22,
    "prevClose": 4.11,
    "day": "2026-11-24",
-   "at": 1795535690000,
+   "at": 1795536597000,
    "src": "B3",
    "live": true
   },
   "KLBN11": {
-   "price": 16.6,
-   "chgPct": 0.55,
+   "price": 16.65,
+   "chgPct": 0.85,
    "prevClose": 16.51,
    "day": "2026-11-24",
-   "at": 1795535691000,
+   "at": 1795536598000,
    "src": "B3",
    "live": true
   },
@@ -50,16 +50,16 @@
    "chgPct": 2.06,
    "prevClose": 9.21,
    "day": "2026-11-24",
-   "at": 1795535692000,
+   "at": 1795536598000,
    "src": "B3",
    "live": true
   },
   "NATU3": {
-   "price": 4.44,
-   "chgPct": -2.42,
+   "price": 4.43,
+   "chgPct": -2.64,
    "prevClose": 4.55,
    "day": "2026-11-24",
-   "at": 1795535692000,
+   "at": 1795536599000,
    "src": "B3",
    "live": true
   },
@@ -68,7 +68,7 @@
    "chgPct": -3.89,
    "prevClose": 3.6,
    "day": "2026-11-24",
-   "at": 1795535693000,
+   "at": 1795536599000,
    "src": "B3",
    "live": true
   },
@@ -77,11 +77,11 @@
    "chgPct": 0.6,
    "prevClose": 6.68,
    "day": "2026-11-24",
-   "at": 1795535693000,
+   "at": 1795536600000,
    "src": "B3",
    "live": true
   }
  },
- "updatedAt": 1795535694296,
+ "updatedAt": 1795536601225,
  "failed": []
 }
