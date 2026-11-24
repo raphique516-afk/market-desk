@@ -1,97 +1,87 @@
 {
  "quotes": {
   "AURE3": {
-   "price": 11.69,
-   "chgPct": -1.85,
-   "prevClose": 11.91,
+   "price": 11.94,
+   "chgPct": 2.14,
+   "prevClose": 11.69,
    "day": "2026-11-24",
-   "at": 1795525187000,
+   "at": 1795527007000,
    "src": "B3",
    "live": true
   },
   "BBDC4": {
-   "price": 13.71,
-   "chgPct": -0.87,
-   "prevClose": 13.83,
+   "price": 13.92,
+   "chgPct": 1.53,
+   "prevClose": 13.71,
    "day": "2026-11-24",
-   "at": 1795525187000,
+   "at": 1795527007000,
    "src": "B3",
    "live": true
   },
   "FESA4": {
-   "price": 5.06,
-   "chgPct": -2.69,
-   "prevClose": 5.2,
+   "price": 5.04,
+   "chgPct": -0.4,
+   "prevClose": 5.06,
    "day": "2026-11-24",
-   "at": 1795525188000,
+   "at": 1795527008000,
    "src": "B3",
    "live": true
   },
   "GMAT3": {
-   "price": 4.11,
-   "chgPct": -1.67,
-   "prevClose": 4.18,
+   "price": 4.19,
+   "chgPct": 1.95,
+   "prevClose": 4.11,
    "day": "2026-11-24",
-   "at": 1795525188000,
+   "at": 1795527009000,
    "src": "B3",
    "live": true
   },
   "KLBN11": {
-   "price": 16.51,
-   "chgPct": -2.54,
-   "prevClose": 16.94,
+   "price": 16.62,
+   "chgPct": 0.67,
+   "prevClose": 16.51,
    "day": "2026-11-24",
-   "at": 1795525189000,
+   "at": 1795527009000,
    "src": "B3",
    "live": true
   },
   "LREN3": {
-   "price": 9.21,
-   "chgPct": 1.21,
-   "prevClose": 9.1,
+   "price": 9.33,
+   "chgPct": 1.3,
+   "prevClose": 9.21,
    "day": "2026-11-24",
-   "at": 1795525190000,
+   "at": 1795527010000,
    "src": "B3",
    "live": true
   },
   "NATU3": {
-   "price": 4.55,
-   "chgPct": 1.56,
-   "prevClose": 4.48,
+   "price": 4.6,
+   "chgPct": 1.1,
+   "prevClose": 4.55,
    "day": "2026-11-24",
-   "at": 1795525190000,
+   "at": 1795527010000,
    "src": "B3",
    "live": true
   },
   "POMO4": {
-   "price": 3.6,
-   "chgPct": -0.55,
-   "prevClose": 3.62,
+   "price": 3.57,
+   "chgPct": -0.83,
+   "prevClose": 3.6,
    "day": "2026-11-24",
-   "at": 1795525191000,
+   "at": 1795527011000,
    "src": "B3",
    "live": true
   },
   "SAPR4": {
-   "price": 6.68,
-   "chgPct": 0.91,
-   "prevClose": 6.62,
+   "price": 6.69,
+   "chgPct": 0.15,
+   "prevClose": 6.68,
    "day": "2026-11-24",
-   "at": 1795525191000,
+   "at": 1795527012000,
    "src": "B3",
    "live": true
   }
  },
- "updatedAt": 1795526105032,
- "failed": [
-  "AURE3",
-  "BBDC4",
-  "FESA4",
-  "GMAT3",
-  "KLBN11",
-  "LREN3",
-  "NATU3",
-  "POMO4",
-  "SAPR4"
- ]
+ "updatedAt": 1795527012746,
+ "failed": []
 }
