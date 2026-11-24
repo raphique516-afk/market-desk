@@ -1,56 +1,56 @@
 {
  "quotes": {
   "AURE3": {
-   "price": 11.83,
-   "chgPct": 1.2,
+   "price": 11.82,
+   "chgPct": 1.11,
    "prevClose": 11.69,
    "day": "2026-11-24",
-   "at": 1795554005000,
+   "at": 1795554931000,
    "src": "B3",
    "live": true
   },
   "BBDC4": {
-   "price": 13.63,
-   "chgPct": -0.58,
+   "price": 13.6,
+   "chgPct": -0.8,
    "prevClose": 13.71,
    "day": "2026-11-24",
-   "at": 1795554006000,
+   "at": 1795554932000,
    "src": "B3",
    "live": true
   },
   "FESA4": {
-   "price": 4.97,
-   "chgPct": -1.78,
+   "price": 4.96,
+   "chgPct": -1.98,
    "prevClose": 5.06,
    "day": "2026-11-24",
-   "at": 1795554007000,
+   "at": 1795554933000,
    "src": "B3",
    "live": true
   },
   "GMAT3": {
-   "price": 4.08,
-   "chgPct": -0.73,
+   "price": 4.07,
+   "chgPct": -0.97,
    "prevClose": 4.11,
    "day": "2026-11-24",
-   "at": 1795554008000,
+   "at": 1795554933000,
    "src": "B3",
    "live": true
   },
   "KLBN11": {
-   "price": 16.59,
-   "chgPct": 0.48,
+   "price": 16.58,
+   "chgPct": 0.42,
    "prevClose": 16.51,
    "day": "2026-11-24",
-   "at": 1795554008000,
+   "at": 1795554934000,
    "src": "B3",
    "live": true
   },
   "LREN3": {
-   "price": 9.15,
-   "chgPct": -0.65,
+   "price": 9.2,
+   "chgPct": -0.11,
    "prevClose": 9.21,
    "day": "2026-11-24",
-   "at": 1795554009000,
+   "at": 1795554935000,
    "src": "B3",
    "live": true
   },
@@ -59,29 +59,29 @@
    "chgPct": -5.71,
    "prevClose": 4.55,
    "day": "2026-11-24",
-   "at": 1795554009000,
+   "at": 1795554935000,
    "src": "B3",
    "live": true
   },
   "POMO4": {
-   "price": 3.36,
-   "chgPct": -6.67,
+   "price": 3.37,
+   "chgPct": -6.39,
    "prevClose": 3.6,
    "day": "2026-11-24",
-   "at": 1795554010000,
+   "at": 1795554936000,
    "src": "B3",
    "live": true
   },
   "SAPR4": {
-   "price": 6.65,
-   "chgPct": -0.45,
+   "price": 6.66,
+   "chgPct": -0.3,
    "prevClose": 6.68,
    "day": "2026-11-24",
-   "at": 1795554011000,
+   "at": 1795554937000,
    "src": "B3",
    "live": true
   }
  },
- "updatedAt": 1795554011707,
+ "updatedAt": 1795554937599,
  "failed": []
 }
