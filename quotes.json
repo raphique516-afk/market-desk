@@ -1,20 +1,20 @@
 {
  "quotes": {
   "AURE3": {
-   "price": 11.98,
-   "chgPct": 1.1,
+   "price": 11.88,
+   "chgPct": 0.25,
    "prevClose": 11.85,
    "day": "2026-11-25",
-   "at": 1795624812000,
+   "at": 1795624929000,
    "src": "B3",
    "live": true
   },
   "BBDC4": {
-   "price": 13.7,
-   "chgPct": 0.59,
+   "price": 13.71,
+   "chgPct": 0.66,
    "prevClose": 13.62,
    "day": "2026-11-25",
-   "at": 1795624812000,
+   "at": 1795624930000,
    "src": "B3",
    "live": true
   },
@@ -23,7 +23,7 @@
    "chgPct": -0.2,
    "prevClose": 4.94,
    "day": "2026-11-25",
-   "at": 1795624813000,
+   "at": 1795624930000,
    "src": "B3",
    "live": true
   },
@@ -32,56 +32,56 @@
    "chgPct": 0,
    "prevClose": 4.1,
    "day": "2026-11-25",
-   "at": 1795624814000,
+   "at": 1795624931000,
    "src": "B3",
    "live": true
   },
   "KLBN11": {
-   "price": 16.72,
-   "chgPct": 0.84,
+   "price": 16.71,
+   "chgPct": 0.78,
    "prevClose": 16.58,
    "day": "2026-11-25",
-   "at": 1795624814000,
+   "at": 1795624931000,
    "src": "B3",
    "live": true
   },
   "LREN3": {
-   "price": 9.28,
-   "chgPct": 0.87,
+   "price": 9.22,
+   "chgPct": 0.22,
    "prevClose": 9.2,
    "day": "2026-11-25",
-   "at": 1795624815000,
+   "at": 1795624932000,
    "src": "B3",
    "live": true
   },
   "NATU3": {
-   "price": 4.37,
-   "chgPct": 2.58,
+   "price": 4.36,
+   "chgPct": 2.35,
    "prevClose": 4.26,
    "day": "2026-11-25",
-   "at": 1795624816000,
+   "at": 1795624933000,
    "src": "B3",
    "live": true
   },
   "POMO4": {
-   "price": 3.42,
-   "chgPct": 1.48,
+   "price": 3.44,
+   "chgPct": 2.08,
    "prevClose": 3.37,
    "day": "2026-11-25",
-   "at": 1795624816000,
+   "at": 1795624933000,
    "src": "B3",
    "live": true
   },
   "SAPR4": {
-   "price": 6.69,
-   "chgPct": 0.6,
+   "price": 6.73,
+   "chgPct": 1.2,
    "prevClose": 6.65,
    "day": "2026-11-25",
-   "at": 1795624817000,
+   "at": 1795624934000,
    "src": "B3",
    "live": true
   }
  },
- "updatedAt": 1795624817997,
+ "updatedAt": 1795624935179,
  "failed": []
 }
