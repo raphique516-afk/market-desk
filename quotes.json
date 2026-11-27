@@ -1,87 +1,87 @@
 {
  "quotes": {
   "AURE3": {
-   "price": 13.38,
-   "chgPct": 4.12,
+   "price": 13.17,
+   "chgPct": 2.49,
    "prevClose": 12.85,
    "day": "2026-11-27",
-   "at": 1795799440000,
+   "at": 1795800348000,
    "src": "B3",
    "live": true
   },
   "BBDC4": {
-   "price": 16.18,
-   "chgPct": 2.21,
+   "price": 15.76,
+   "chgPct": -0.44,
    "prevClose": 15.83,
    "day": "2026-11-27",
-   "at": 1795799441000,
+   "at": 1795800349000,
    "src": "B3",
    "live": true
   },
   "FESA4": {
-   "price": 5.16,
-   "chgPct": -1.71,
+   "price": 5.17,
+   "chgPct": -1.52,
    "prevClose": 5.25,
    "day": "2026-11-27",
-   "at": 1795799442000,
+   "at": 1795800350000,
    "src": "B3",
    "live": true
   },
   "GMAT3": {
-   "price": 4.54,
-   "chgPct": 5.58,
+   "price": 4.65,
+   "chgPct": 8.14,
    "prevClose": 4.3,
    "day": "2026-11-27",
-   "at": 1795799442000,
+   "at": 1795800350000,
    "src": "B3",
    "live": true
   },
   "KLBN11": {
-   "price": 17.23,
-   "chgPct": 1.65,
+   "price": 17.21,
+   "chgPct": 1.53,
    "prevClose": 16.95,
    "day": "2026-11-27",
-   "at": 1795799443000,
+   "at": 1795800351000,
    "src": "B3",
    "live": true
   },
   "LREN3": {
-   "price": 10.56,
-   "chgPct": 5.39,
+   "price": 10.53,
+   "chgPct": 5.09,
    "prevClose": 10.02,
    "day": "2026-11-27",
-   "at": 1795799444000,
+   "at": 1795800352000,
    "src": "B3",
    "live": true
   },
   "NATU3": {
-   "price": 5.01,
-   "chgPct": -3.65,
+   "price": 4.94,
+   "chgPct": -5,
    "prevClose": 5.2,
    "day": "2026-11-27",
-   "at": 1795799444000,
+   "at": 1795800352000,
    "src": "B3",
    "live": true
   },
   "POMO4": {
-   "price": 3.74,
-   "chgPct": 3.31,
+   "price": 3.73,
+   "chgPct": 3.04,
    "prevClose": 3.62,
    "day": "2026-11-27",
-   "at": 1795799445000,
+   "at": 1795800353000,
    "src": "B3",
    "live": true
   },
   "SAPR4": {
-   "price": 6.84,
-   "chgPct": -1.58,
+   "price": 6.86,
+   "chgPct": -1.29,
    "prevClose": 6.95,
    "day": "2026-11-27",
-   "at": 1795799445000,
+   "at": 1795800353000,
    "src": "B3",
    "live": true
   }
  },
- "updatedAt": 1795799446463,
+ "updatedAt": 1795800354343,
  "failed": []
 }
